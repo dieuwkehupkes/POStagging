@@ -49,6 +49,9 @@ class HMM2_generator:
 				trigrams = self.add_trigram_count(trigrams, prev_tag, cur_tag, "###")
 				prev_tag, cur_tag = "###", "$$$"
 		f.close()
+		#add last trigram if file did not end with white line
+		if prev_tag != "###":
+			self.add_trigram_count(trigrams, prev_tag, cur_tag, "###")
 		transition_dict = self.get_transition_probs(trigrams)
 		emission_dict = self.get_emission_probs(emission)
 		hmm = HMM2(transition_dict, emission_dict)
