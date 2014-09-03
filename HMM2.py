@@ -12,36 +12,49 @@ class HMM2:
 	"""
 	def __init__(self, transition_probabilities, emission_probabilities):
 		self.emission = emission_probabilities
-		self.transition_add_zero()
 		self.transition = transition_probabilities
 	
-	
-	def compute_probability(self, tagged_sequence):
+	def compute_probability(self, sequence, tags):
 		"""
 		Compute the probability of a tagged sequence.
 		:param tagged_sequence: a list of (word, tag) tuples
 		"""
-		s = [('###','###'), ('$$$','$$$')] + tagged_sequence + [('###','###')]
+		tags = ['###','$$$'] + tags + ['###']
 		prob = 1
 		#compute emission probabilities
-		try:
-			for pair in s[2:-1]:
-				prob = prob * self.emission[pair[1]][pair[0]]
-		except KeyError:
-			print "Not all words occurred in lexicon"
-			return 0
+		for i in xrange(len(sequence)):
+			word = sequence[i]
+			tag = tags[i+2]
+			try:
+				prob = prob * self.emission[tag][word]
+			except KeyError:
+				return 0
+				prob = prob *self.get_smoothed_emission(tag,word)
 		#compute transition probabilities
-		try:
-			for i in xrange(2,len(s)):
-				tag1, tag2, tag3 = s[i-2][1], s[i-1][1], s[i][1]
+		for i in xrange(2,len(tags)):
+			tag1, tag2, tag3 = tags[i-2], tags[i-1], tags[i]
+			try:
 				prob = prob * self.transition[tag1][tag2][tag3]
-		except KeyError:
-			print "Not all trigrams occur in model"
-			print tag1, tag2,tag3
-			return 0
+			except KeyError:
+				return 0
+				prob = prob * self.get_smoothed_transition(tag1, tag2, tag3)
 		return prob
 	
+	def get_smoothed_emission(self, tag, word):
+		"""
+		Smoothed probability if a word-tag pair does not
+		occur in the lexicon. For future use, currently just
+		returns 0.
+		"""
+		return 0
 	
+	def get_smoothed_transition(self, tag1, tag2, tag3):
+		"""
+		Smoothed transition probability for unseen trigrams.
+		For future use, currently just returns 0.
+		"""
+		return 0
+
 	def print_trigrams(self):
 		for tag1 in self.transition:
 			print tag1
