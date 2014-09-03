@@ -22,8 +22,6 @@ class HMM2_generator:
 					transition_dict[tag1][tag2][tag3] = 0
 		return transition_dict
 			
-			
-	
 	def get_hmm_from_file(self, input_file, tags=None):
 		"""
 		Get an HMM from a file containing words and
