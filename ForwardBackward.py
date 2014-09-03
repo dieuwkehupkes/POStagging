@@ -45,6 +45,23 @@ class ForwardBackward:
 				for tag3 in self.tags:
 					self.hmm.transition[tag1][tag2][tag3] = self.hmm.transition[tag1][tag2].get(tag3,0)
 		return
+
+	def compute_expected_counts(self):
+		"""
+		Compute the counts for every tag at every possible position
+		"""
+		expected_counts = {}
+		self.compute_all_forward_probabilities()
+		self.compute_all_backward_probabilities()
+		self.compute_all_products()
+		self.compute_all_sums()
+		self.compute_all_position_sums()
+		for i in xrange(len(self.sentence)):
+			expected_counts[i] = {}	
+			for tag in tags:
+				prob = self.compute_tag_probability(i,tag)
+				expected_counts[i][tag] = prob
+		return expected_counts
 	
 	def compute_tag_probability(self, position, tag):
 		"""
@@ -251,11 +268,12 @@ if __name__ == '__main__':
 #	print '\n'.join(["products%s: %f" % (item[0], item[1]) for item in training.products.items() if item[1]!=0])
 #	print "\nnon-zero sums"
 #	print '\n'.join(["sums%s: %f" % (item[0], item[1]) for item in training.sums.items() if item[1]!=0])
-	print training.compute_tag_probability(2,'LID')
-	print training.compute_tag_probability(2,'V')
+	expected_counts = training.compute_expected_counts()
+	for position in expected_counts:
+		print '\n', position, 
+		for tag in expected_counts[position]:
+			print '\t', tag, expected_counts[position][tag]
 	probs = find_counts_brute_forse(hmm,s,tags)
-	for key in probs:
-		total_2 = sum([probs[i] for i in probs.keys() if i[0] == 2])
-	print "P(t2 = LID) = " ,probs[(2,'LID')]/total_2
-	print "p(t2 = v) = " ,probs[(2,'V')]/total_2
+	total1 = sum([probs[tag] for tag in probs.keys() if tag[0]==1])
+	print 'P(1,V)', probs[(1,'V')]/total1
 
