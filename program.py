@@ -9,15 +9,14 @@ precision = 100
 
 generator = gen()
 trans_dict, lex_dict = generator.get_hmm_dicts_from_file('test')
-words = generator.get_words_from_file('test_unlabeled')
-trans_dict = generator.transition_dict_add_alpha(0.1, trans_dict, tags)
-lex_dict_smoothed = generator.emission_dict_add_alpha(2, lex_dict, words)
+trans_dict = generator.transition_dict_add_alpha(1, trans_dict, tags)
+lex_dict_smoothed = generator.lexicon_dict_add_unlabeled('test_unlabeled', lex_dict, tags_ns)
 hmm = generator.make_hmm(trans_dict, lex_dict)
 
 
 lex = copy.deepcopy(lex_dict_smoothed)
 
-for i in xrange(3):
+for i in xrange(10):
 	f = open('test_unlabeled','r')
 
 	for line in f:
@@ -25,6 +24,11 @@ for i in xrange(3):
 		expected_counts = training.compute_expected_counts(tags_ns)
 		#print '\nposition sums:', training.position_sums, '\n\n\n\n'
 		lex = training.update_lexical_dict(lex, expected_counts)
+		if line == 'de jongen rent naar huis\n':
+			for p in [(0, 'LID'),(1,'N'), (2,'V'),(3,'VZ'),(4,'N')]:
+				position, tag = p
+				print "P(%i, %s): %f" % (position, tag, expected_counts[position][tag])
+			print '\n\n'
 	f.close()
 	hmm = generator.make_hmm(trans_dict, lex)
 

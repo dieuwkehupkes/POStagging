@@ -36,7 +36,6 @@ class HMM2_generator:
 			except IndexError:
 				continue
 		return words
-			
 	
 	def get_hmm_dicts_from_file(self, input_file, tags=None):
 		"""
@@ -95,6 +94,24 @@ class HMM2_generator:
 		word_count_dict[tag] = word_count_dict.get(tag,{})
 		word_count_dict[tag][word] = word_count_dict[tag].get(word,Decimal('0')) + 1
 		return word_count_dict
+
+	def lexicon_dict_add_unlabeled(self, unlabeled_file, lexicon_dict, tags):
+		"""
+		For every word in an unlabeled file, add counts to a dictionary
+		with lexicon counts. The counts are equally diveded over all tags,
+		later I could maybe implement something with more sophisticated
+		initial estimations.
+		"""
+		count_per_tag = Decimal('1')/Decimal(len(tags))
+		f = open(unlabeled_file, 'r')
+		for line in f:
+			words = line.split()
+			for word in words:
+				for tag in tags:
+					lexicon_dict[tag][word] = lexicon_dict[tag].get(word,Decimal('0')) + count_per_tag
+		f.close()
+		return lexicon_dict
+					
 
 	def transition_dict_add_alpha(self, alpha, trigram_count_dict,tags):
 		"""
