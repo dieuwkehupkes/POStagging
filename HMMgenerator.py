@@ -102,15 +102,16 @@ class HMM2_generator:
 		later I could maybe implement something with more sophisticated
 		initial estimations.
 		"""
+		l_dict = copy.copy(lexicon_dict)
 		count_per_tag = Decimal('1')/Decimal(len(tags))
 		f = open(unlabeled_file, 'r')
 		for line in f:
 			words = line.split()
 			for word in words:
 				for tag in tags:
-					lexicon_dict[tag][word] = lexicon_dict[tag].get(word,Decimal('0')) + count_per_tag
+					l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + count_per_tag
 		f.close()
-		return lexicon_dict
+		return l_dict
 					
 
 	def transition_dict_add_alpha(self, alpha, trigram_count_dict,tags):
