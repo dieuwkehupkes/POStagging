@@ -105,29 +105,54 @@ class HMM2_generator:
 		"""
 		l_dict = copy.copy(lexicon_dict)
 		count_per_tag = Decimal('1')/Decimal(len(tags))
-		f = open(unlabeled_file, 'r')
+		words = self.make_word_list(unlabeled_file)
+		print "generated word list"
+		print len(words)
+		i = 0
+		for word in words:
+			if i % 1000 == 0:
+				print i
+			if word in string.punctuation:
+				#l_dict['LET'][word] = l_dict['LET'].get(word, Decimal('0')) + Decimal(words[word])
+				continue
+			for tag in tags:
+				#l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + Decimal(words[word])*count_per_tag
+				l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + Decimal('1')
+			i += 1
+		return l_dict
+	
+	def make_word_list(self, unlabeled_file):
+		"""
+		Make a dictionary with all words in
+		unlabeled file.
+		"""
+		f = open(unlabeled_file,'r')
+		word_dict = {}
 		for line in f:
 			words = line.split()
 			for word in words:
-				if word in string.punctuation:
-					l_dict['LET'][word] = l_dict['LET'].get(word, Decimal('0')) + 1
-				for tag in tags:
-					l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + count_per_tag
+				word_dict[word] = word_dict.get(word,0) + 1
 		f.close()
-		return l_dict
+		return word_dict
+			
 					
 
 	def transition_dict_add_alpha(self, alpha, trigram_count_dict,tags):
 		"""
 		Add alpha smoothing for the trigram count dictionary
 		"""
+		t_dict = copy.copy(trigram_count_dict)
 		for tag1 in tags:
-			trigram_count_dict[tag1] = trigram_count_dict.get(tag1,{})
+			t_dict['###']['$$$'][tag1] = t_dict['###']['$$$'].get(tag1,Decimal('0')) + Decimal(str(alpha))
+			t_dict[tag1] = t_dict.get(tag1,{})
+			t_dict['$$$'][tag1] = t_dict['$$$'].get(tag1,{})
 			for tag2 in tags:
-				trigram_count_dict[tag1][tag2] = trigram_count_dict[tag1].get(tag2,{})
+				t_dict['$$$'][tag1][tag2] = t_dict['$$$'][tag1].get(tag2,Decimal('0')) + Decimal(str(alpha))
+				t_dict[tag1][tag2] = t_dict[tag1].get(tag2,{})
 				for tag3 in tags:
-					trigram_count_dict[tag1][tag2][tag3] = trigram_count_dict[tag1][tag2].get(tag3,Decimal(0)) + Decimal(str(alpha))
-		return trigram_count_dict
+					t_dict[tag1][tag2][tag3] = t_dict[tag1][tag2].get(tag3,Decimal('0')) + Decimal(str(alpha))
+					t_dict[tag1][tag2]['###'] = t_dict[tag1][tag2].get('###',Decimal('0')) + Decimal(str(alpha))
+		return t_dict
 	
 	def emission_dict_add_alpha(self, alpha, emission_dict, words):
 		# Dit moet denk ik anders, misschien voor ieder woord

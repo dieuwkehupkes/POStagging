@@ -43,7 +43,13 @@ class ForwardBackward:
 		d = copy.deepcopy(lex_dict)
 		for pos in expected_counts:
 			for tag in expected_counts[pos]:
-				d[tag][self.sentence[pos]] += Decimal(expected_counts[pos][tag])
+				try:
+					d[tag][self.sentence[pos]] += Decimal(expected_counts[pos][tag])
+				except KeyError:
+					print tag, self.sentence[pos]
+					print d[tag][self.sentence[pos]]
+					print expected_counts[pos][tag]
+				
 		return d
 
 	def transition_add_zero(self):
@@ -92,9 +98,11 @@ class ForwardBackward:
 			raise ValueError("Forward and backward probabilities should be computed before computing tag probabilities")
 		except ZeroDivisionError:
 			probability = 0
-		#except:
-		#	print 'position', position, '\ntag', tag, '\nsums[position,tags]', self.sums[(position, tag)], '\n\nposition_sums[position', self.position_sums[position]
-		#	probability = 0
+		except:
+			print '\n'.join(['tag: %s, prob: %f' % (tp[1], self.sums[tp]) for tp in self.sums if tp[0] == position])
+			#print 'position', position, '\ntag', tag, '\nsums[position,tags]', self.sums[(position, tag)], '\n\nposition_sums[position', self.position_sums[position]
+			raise ZeroDivisionError
+			probability = 0
 		return probability
 	
 	def get_smoothed_prob(self,tag,sentence):

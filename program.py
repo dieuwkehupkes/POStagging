@@ -9,14 +9,16 @@ precision = 100
 
 generator = gen()
 trans_dict, lex_dict = generator.get_hmm_dicts_from_file('test')
-trans_dict = generator.transition_dict_add_alpha(1, trans_dict, tags)
+trans_dict = generator.transition_dict_add_alpha(0.5, trans_dict, tags)
+words = generator.get_words_from_file('test_unlabeled') 
+#lex_dict_smoothed = generator.emission_dict_add_alpha(0.5, lex_dict, words)
 lex_dict_smoothed = generator.lexicon_dict_add_unlabeled('test_unlabeled', lex_dict, tags_ns)
 hmm = generator.make_hmm(trans_dict, lex_dict)
 
 
 lex = copy.deepcopy(lex_dict_smoothed)
 
-for i in xrange(10):
+for i in xrange(20):
 	f = open('test_unlabeled','r')
 
 	for line in f:
