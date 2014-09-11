@@ -5,6 +5,7 @@ blablabla
 
 import sys
 import copy
+from decimal import *
 
 class HMM2:
 	"""
@@ -13,6 +14,7 @@ class HMM2:
 	def __init__(self, transition_probabilities, emission_probabilities):
 		self.emission = emission_probabilities
 		self.transition = transition_probabilities
+#		getcontext.prec = 5000
 	
 	def compute_probability(self, sequence, tags):
 		"""
@@ -20,7 +22,7 @@ class HMM2:
 		:param tagged_sequence: a list of (word, tag) tuples
 		"""
 		tags = ['###','$$$'] + tags + ['###']
-		prob = 1
+		prob = Decimal('1.0')
 		#compute emission probabilities
 		for i in xrange(len(sequence)):
 			word = sequence[i]

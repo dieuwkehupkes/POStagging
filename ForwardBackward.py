@@ -6,6 +6,7 @@ DON'T FORGET TO INCLUDE ENDING AND STARTING COUNTS IN EXPECTED COUNTS!
 
 from HMM2 import *
 from HMMgenerator import *
+from decimal import *
 
 class ForwardBackward:
 	"""
@@ -13,7 +14,7 @@ class ForwardBackward:
 	the sentence. Initialise with an HMM model,
 	a set of possible tags and a sentence.
 	"""
-	def __init__(self, sentence, hmm2, possible_tags):
+	def __init__(self, sentence, hmm2, possible_tags, precision=100):
 		"""
 		:param sentence: A tokenised sentence, either a string or a list of words
 		:param hmm2: A second order hmm model
@@ -32,6 +33,18 @@ class ForwardBackward:
 		self.transition_add_zero()
 		self.forward = {}
 		self.backward = {}
+		getcontext().prec = precision
+	
+	def update_lexical_dict(self, lex_dict, expected_counts):
+		"""
+		Update the inputted lexical dictionary with the
+		expected counts
+		"""
+		d = copy.deepcopy(lex_dict)
+		for pos in expected_counts:
+			for tag in expected_counts[pos]:
+				d[tag][self.sentence[pos]] += Decimal(expected_counts[pos][tag])
+		return d
 
 	def transition_add_zero(self):
 		"""
@@ -43,10 +56,10 @@ class ForwardBackward:
 			for tag2 in self.tags:
 				self.hmm.transition[tag1][tag2] = self.hmm.transition[tag1].get(tag2,{})
 				for tag3 in self.tags:
-					self.hmm.transition[tag1][tag2][tag3] = self.hmm.transition[tag1][tag2].get(tag3,0)
+					self.hmm.transition[tag1][tag2][tag3] = self.hmm.transition[tag1][tag2].get(tag3,Decimal(0))
 		return
 
-	def compute_expected_counts(self):
+	def compute_expected_counts(self,tags):
 		"""
 		Compute the counts for every tag at every possible position
 		"""
@@ -79,6 +92,9 @@ class ForwardBackward:
 			raise ValueError("Forward and backward probabilities should be computed before computing tag probabilities")
 		except ZeroDivisionError:
 			probability = 0
+		#except:
+		#	print 'position', position, '\ntag', tag, '\nsums[position,tags]', self.sums[(position, tag)], '\n\nposition_sums[position', self.position_sums[position]
+		#	probability = 0
 		return probability
 	
 	def get_smoothed_prob(self,tag,sentence):
@@ -247,12 +263,15 @@ def find_counts_brute_forse(hmm, sentence, tags):
 
 
 if __name__ == '__main__':
-	f = sys.argv[1]
+	f = 'test'
 	generator = HMM2_generator()
-	hmm = generator.get_hmm_from_file(f)
+	trans_dict, lex_dict = generator.get_hmm_dicts_from_file(f)
+	tags = set(['LID','VZ','$$$','###','N','V'])
+	trans_dict = generator.transition_dict_add_alpha(0.1, trans_dict, tags)
+	lex_dict = generator.emission_dict_add_alpha(0.1, lex_dict, (['de','man','heeft','een','huis']))
+	hmm = generator.make_hmm(trans_dict, lex_dict)
 	#hmm.print_trigrams()
 	#hmm.print_lexicon()
-	tags = set(['LID','VZ','$$$','###','N','V'])
 	s = 'de man heeft een huis'
 	#tags = set(['LID','VZ','$$$','###','N','V', 'ADJ', 'ADV','TW', 'VG','LET','TSW', 'VNW'])
 	training = ForwardBackward(s, hmm, tags)
@@ -268,11 +287,11 @@ if __name__ == '__main__':
 #	print '\n'.join(["products%s: %f" % (item[0], item[1]) for item in training.products.items() if item[1]!=0])
 #	print "\nnon-zero sums"
 #	print '\n'.join(["sums%s: %f" % (item[0], item[1]) for item in training.sums.items() if item[1]!=0])
-	expected_counts = training.compute_expected_counts()
-	for position in expected_counts:
-		print '\n', position, 
-		for tag in expected_counts[position]:
-			print '\t', tag, expected_counts[position][tag]
+	expected_counts = training.compute_expected_counts(tags)
+#	for position in expected_counts:
+#		print '\n', position, 
+#		for tag in expected_counts[position]:
+#			print '\t', tag, expected_counts[position][tag]
 	probs = find_counts_brute_forse(hmm,s,tags)
 	total1 = sum([probs[tag] for tag in probs.keys() if tag[0]==1])
 	print 'P(1,V)', probs[(1,'V')]/total1

@@ -1,12 +1,13 @@
 from HMM2 import *
+import copy
+from decimal import *
 
 class HMM2_generator:
 	"""
 	Functions to generate HMMs
 	"""
 	def __init__(self):
-		#currently it seems nothing needs to be done here
-		pass
+		getcontext.prec = 50
 
 	def init_transition_dict(self, tags):
 		"""
@@ -21,10 +22,25 @@ class HMM2_generator:
 				for tag3 in tags:
 					transition_dict[tag1][tag2][tag3] = 0
 		return transition_dict
-			
-	def get_hmm_from_file(self, input_file, tags=None):
+	
+	def get_words_from_file(self, input_file):
 		"""
-		Get an HMM from a file containing words and
+		Get all words from a file containing
+		tokenised sentences.
+		"""
+		f = open(input_file,'r')
+		words = set([])
+		for line in f:
+			try:
+				words = words.union(set(line.split()))
+			except IndexError:
+				continue
+		return words
+			
+	
+	def get_hmm_dicts_from_file(self, input_file, tags=None):
+		"""
+		Get hmm dictionaries from a file containing words and
 		tags separated by a tab. Sentences are delimited by
 		newlines.
 		Trigrams stop at the end of the sentence, but both the
@@ -54,6 +70,12 @@ class HMM2_generator:
 			self.add_trigram_count(trigrams, prev_tag, cur_tag, "###")
 		transition_dict = self.get_transition_probs(trigrams)
 		emission_dict = self.get_emission_probs(emission)
+		return transition_dict, emission_dict
+	
+	def make_hmm(self, transition_dict, emission_dict):
+		"""
+		Return a HMM object
+		"""
 		hmm = HMM2(transition_dict, emission_dict)
 		return hmm
 	
@@ -63,7 +85,7 @@ class HMM2_generator:
 		"""
 		counting_dict[tag1] = counting_dict.get(tag1, {})
 		counting_dict[tag1][tag2] = counting_dict[tag1].get(tag2, {})
-		counting_dict[tag1][tag2][tag3] = counting_dict[tag1][tag2].get(tag3, 0) + 1
+		counting_dict[tag1][tag2][tag3] = counting_dict[tag1][tag2].get(tag3, Decimal('0')) + 1
 		return counting_dict
 	
 	def add_word_count(self, word_count_dict, tag, word):
@@ -71,8 +93,35 @@ class HMM2_generator:
 		Add tag, word count to a counting dictionary.
 		"""
 		word_count_dict[tag] = word_count_dict.get(tag,{})
-		word_count_dict[tag][word] = word_count_dict[tag].get(word,0) +1
+		word_count_dict[tag][word] = word_count_dict[tag].get(word,Decimal('0')) + 1
 		return word_count_dict
+
+	def transition_dict_add_alpha(self, alpha, trigram_count_dict,tags):
+		"""
+		Add alpha smoothing for the trigram count dictionary
+		"""
+		for tag1 in tags:
+			trigram_count_dict[tag1] = trigram_count_dict.get(tag1,{})
+			for tag2 in tags:
+				trigram_count_dict[tag1][tag2] = trigram_count_dict[tag1].get(tag2,{})
+				for tag3 in tags:
+					trigram_count_dict[tag1][tag2][tag3] = trigram_count_dict[tag1][tag2].get(tag3,Decimal(0)) + Decimal(str(alpha))
+		return trigram_count_dict
+	
+	def emission_dict_add_alpha(self, alpha, emission_dict, words):
+		# Dit moet denk ik anders, misschien voor ieder woord
+		# verdelen over alle tags (of gemotiveerd), initially?
+		# Dat zorgt er wel voor dat er meer probabiity mass
+		# gaat naar vaker voorkomende woorden, is dat een probleem?
+		"""
+		Smooth the emission dict with add-alpha smoothing, introducing
+		non-zero parameters for all needed lexical parameters
+		"""
+		e_dict = copy.copy(emission_dict)
+		for tag in emission_dict:
+			for word in words:
+				e_dict[tag][word] = e_dict.get(word,Decimal(0)) + Decimal(str(alpha))
+		return e_dict
 
 	def get_emission_probs(self, word_count_dict):
 		"""
@@ -83,8 +132,8 @@ class HMM2_generator:
 		for tag in word_count_dict:
 			total = sum(word_count_dict[tag].values())
 			for word in word_count_dict[tag]:
-				emission_dict[tag][word] = float(word_count_dict[tag][word])/total
-		return emission_dict
+				emission_dict[tag][word] = word_count_dict[tag][word]/total
+		return emission_dict	
 	
 	def get_transition_probs(self, trigram_count_dict):
 		"""
@@ -96,7 +145,7 @@ class HMM2_generator:
 			for tag2 in trigram_count_dict[tag1]:
 				total = sum(trigram_count_dict[tag1][tag2].values())
 				for tag3 in trigram_count_dict[tag1][tag2]:
-					transition_dict[tag1][tag2][tag3] = float(transition_dict[tag1][tag2][tag3])/total
+					transition_dict[tag1][tag2][tag3] = transition_dict[tag1][tag2][tag3]/total
 		return transition_dict
 					
 
@@ -104,6 +153,12 @@ class HMM2_generator:
 if __name__ == '__main__':
 	f = sys.argv[1]
 	generator = HMM2_generator()
-	hmm = generator.get_hmm_from_file(f)
-	print hmm.compute_probability([('ik','N'), ('loop','V'), ('snel', 'ADV')])
+	d1, d2 = generator.get_hmm_dicts_from_file(f)
+	tags = ['N','V','###','$$$','LID','VZ']
+	d1 = generator.transition_dict_add_alpha(0.1,d1, tags)
+	d2 = generator.emission_dict_add_alpha(0.1,d2,set(['een','hond','loopt','naar','huis']))
+	hmm = generator.make_hmm(d1, d2)
+	sequence = 'een hond loopt naar huis'.split()
+	tags = ['LID','N','V','VZ','N']
+	print hmm.compute_probability(sequence, tags)
 	
