@@ -1,6 +1,7 @@
 from HMM2 import *
 import copy
 from decimal import *
+import string
 
 class HMM2_generator:
 	"""
@@ -98,7 +99,7 @@ class HMM2_generator:
 	def lexicon_dict_add_unlabeled(self, unlabeled_file, lexicon_dict, tags):
 		"""
 		For every word in an unlabeled file, add counts to a dictionary
-		with lexicon counts. The counts are equally diveded over all tags,
+		with lexicon counts. The counts are equally diveded over all inputted tags,
 		later I could maybe implement something with more sophisticated
 		initial estimations.
 		"""
@@ -108,6 +109,8 @@ class HMM2_generator:
 		for line in f:
 			words = line.split()
 			for word in words:
+				if word in string.punctuation:
+					l_dict['LET'][word] = l_dict['LET'].get(word, Decimal('0')) + 1
 				for tag in tags:
 					l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + count_per_tag
 		f.close()
