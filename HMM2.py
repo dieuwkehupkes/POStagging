@@ -56,7 +56,31 @@ class HMM2:
 		For future use, currently just returns 0.
 		"""
 		return 0
-
+	
+	def expected_counts_brute_forse(self, sentence, tags):
+		import itertools
+		probs = {}
+		s = sentence.split()
+		#generate all possible tag sequences
+		sequence_iterator = itertools.product(tags, repeat=len(s))
+		#find probability of each tag-position pair
+		for sequence in sequence_iterator:
+			prob = self.compute_probability(s, list(sequence))
+			for pos in xrange(len(sequence)):
+				tag = sequence[pos]
+				probs[(pos,tag)] = probs.get((pos,tag),Decimal('0')) + prob
+		#compute totals for each position
+		totals, e_count = {}, {}
+		for position in xrange(len(s)):
+			e_count[position] = {}
+			totals[position] = sum([probs[x] for x in probs.keys() if x[0] == position])
+			for tag in tags:
+				try:
+					e_count[position][tag] = probs[(position,tag)]/totals[position]
+				except ZeroDivisionError:
+					e_count[position][tag] = 0
+		return e_count	
+		
 	def print_trigrams(self):
 		for tag1 in self.transition:
 			print tag1

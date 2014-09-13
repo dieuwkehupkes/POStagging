@@ -68,14 +68,14 @@ class HMM2_generator:
 		#add last trigram if file did not end with white line
 		if prev_tag != "###":
 			self.add_trigram_count(trigrams, prev_tag, cur_tag, "###")
-		transition_dict = self.get_transition_probs(trigrams)
-		emission_dict = self.get_emission_probs(emission)
-		return transition_dict, emission_dict
+		return trigrams, emission
 	
-	def make_hmm(self, transition_dict, emission_dict):
+	def make_hmm(self, trigrams, emission):
 		"""
 		Return a HMM object
 		"""
+		transition_dict = self.get_transition_probs(trigrams)
+		emission_dict = self.get_emission_probs(emission)
 		hmm = HMM2(transition_dict, emission_dict)
 		return hmm
 	
@@ -96,22 +96,18 @@ class HMM2_generator:
 		word_count_dict[tag][word] = word_count_dict[tag].get(word,Decimal('0')) + 1
 		return word_count_dict
 
-	def lexicon_dict_add_unlabeled(self, unlabeled_file, lexicon_dict, tags):
+	def lexicon_dict_add_unlabeled(self, word_dict, lexicon_dict, tags):
 		"""
 		For every word in an unlabeled file, add counts to a dictionary
 		with lexicon counts. The counts are equally diveded over all inputted tags,
 		later I could maybe implement something with more sophisticated
 		initial estimations.
 		"""
+		words = word_dict
+		i = 0
 		l_dict = copy.copy(lexicon_dict)
 		count_per_tag = Decimal('1')/Decimal(len(tags))
-		words = self.make_word_list(unlabeled_file)
-		print "generated word list"
-		print len(words)
-		i = 0
 		for word in words:
-			if i % 1000 == 0:
-				print i
 			if word in string.punctuation:
 				#l_dict['LET'][word] = l_dict['LET'].get(word, Decimal('0')) + Decimal(words[word])
 				continue
@@ -143,15 +139,24 @@ class HMM2_generator:
 		"""
 		t_dict = copy.copy(trigram_count_dict)
 		for tag1 in tags:
+			# count for starting a sentence with tag tag1
 			t_dict['###']['$$$'][tag1] = t_dict['###']['$$$'].get(tag1,Decimal('0')) + Decimal(str(alpha))
+			# create an entry for tag1, if it does not exist yet
 			t_dict[tag1] = t_dict.get(tag1,{})
+			# create an entry for start, tag1 if it doesn't exist yet
 			t_dict['$$$'][tag1] = t_dict['$$$'].get(tag1,{})
+			# count for having a one word sentence with tag tag1
+			t_dict['$$$'][tag1]['###'] = t_dict['$$$'][tag1].get('$$$',Decimal('0')) + Decimal(str(alpha))
 			for tag2 in tags:
+				# count for starting a sentence with tag1 tag2
 				t_dict['$$$'][tag1][tag2] = t_dict['$$$'][tag1].get(tag2,Decimal('0')) + Decimal(str(alpha))
+				# create an entry for trigrams starting with tag1 tag2 if it doesn't exist yet
 				t_dict[tag1][tag2] = t_dict[tag1].get(tag2,{})
+				# count for sentence ending with tag1 tag2.
+				t_dict[tag1][tag2]['###'] = t_dict[tag1][tag2].get('###',Decimal('0')) + Decimal(str(alpha))
 				for tag3 in tags:
+					# count for trigram tag1 tag2 tag3
 					t_dict[tag1][tag2][tag3] = t_dict[tag1][tag2].get(tag3,Decimal('0')) + Decimal(str(alpha))
-					t_dict[tag1][tag2]['###'] = t_dict[tag1][tag2].get('###',Decimal('0')) + Decimal(str(alpha))
 		return t_dict
 	
 	def emission_dict_add_alpha(self, alpha, emission_dict, words):
@@ -205,6 +210,6 @@ if __name__ == '__main__':
 	d2 = generator.emission_dict_add_alpha(0.1,d2,set(['een','hond','loopt','naar','huis']))
 	hmm = generator.make_hmm(d1, d2)
 	sequence = 'een hond loopt naar huis'.split()
-	tags = ['LID','N','V','VZ','N']
+	tags = ['LID','V','VZ','N']
 	print hmm.compute_probability(sequence, tags)
 	
