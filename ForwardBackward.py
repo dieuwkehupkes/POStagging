@@ -126,8 +126,14 @@ class ForwardBackward:
 		#if forward probability is already computed, return
 		if (position, tag1, tag2) in self.forward:
 			return self.forward[(position, tag1, tag2)]
-		#base case of the recursion
+		# tag $$$ or tag ### never occur for words
+		if tag1 == "$$$" or tag1 == "###":
+			self.forward[(position,tag1,tag2)] = 0
+			return 0
+
 		word = self.sentence[position]
+		
+		#base case of the recursion
 		if position == 0:
 			if tag2 == "$$$":
 				try:
@@ -136,22 +142,31 @@ class ForwardBackward:
 					prob = self.get_smoothed_prob(tag1,word) * self.hmm.transition['###']['$$$'][tag1]
 				self.forward[(position,tag1,tag2)] = prob
 				return prob
-			#tag2 is always start of sentence, otherwise prob = 0
+			else:
+				#tag2 is always start of sentence, otherwise prob = 0
+				self.forward[(position,tag1,tag2)] = 0
+				return 0
+
+		if tag2 == "$$$" or tag2 == "###":
+			#if position is not 0, tag of previous word cannot be $$$ or ###
 			self.forward[(position,tag1,tag2)] = 0
 			return 0
+
 		#position further in the sentence
 		try:
-			prob = self.hmm.emission[tag1][word]
+			e_prob = self.hmm.emission[tag1][word]
 		except KeyError:
-			prob = self.get_smoothed_prob(tag1, word)
+			e_prob = self.get_smoothed_prob(tag1, word)
 		#marginalise over possible tags
 		sum_alpha = 0
-		for tag in self.tags:
+		tags = self.tags.union(set(["$$$"]))
+		for tag in tags:
 			new_alpha = self.forward_probability(position-1,tag2,tag)
-			sum_alpha += (self.forward_probability(position-1, tag2,tag)*self.hmm.transition[tag][tag2][tag1])
-		prob = prob * sum_alpha		
-		self.forward[(position,tag1,tag2)] = prob
-		return prob
+			new_transition = self.hmm.transition[tag][tag2][tag1]
+			sum_alpha += new_alpha*new_transition
+		e_prob = e_prob * sum_alpha		
+		self.forward[(position,tag1,tag2)] = e_prob
+		return e_prob
 
 	def compute_all_forward_probabilities(self):
 		"""
@@ -160,10 +175,13 @@ class ForwardBackward:
 		"""
 		#In principle are there some things that can be excluded or forehand
 		# such as "$$$" "$$$" X, maybe I should hard code skipping these cases
-		len(self.sentence)
-		for position in xrange(len(self.sentence)):
-			for tag1 in self.tags:
-				for tag2 in self.tags:
+		tags = self.tags.union(set(['$$$']))
+		
+		#compute forward probabilities
+		for position in xrange(0,len(self.sentence)):
+			#print "position", position
+			for tag1 in tags:
+				for tag2 in tags:
 					#compute forward probability
 					self.forward_probability(position,tag1,tag2)
 		return
@@ -202,7 +220,7 @@ class ForwardBackward:
 			"""
 			for position in reversed(xrange(len(self.sentence))):
 				for tag1 in self.tags:
-					for tag2 in self.tags:
+					for tag2 in self.tags.union(set(["$$$"])):
 						#compute backward probability
 						self.backward_probability(position,tag1,tag2)
 			return
@@ -221,8 +239,8 @@ class ForwardBackward:
 		self.sums = {}
 		for pos in xrange(len(self.sentence)):
 			for i in self.tags:
-				self.sums[(pos,i)] = 0
-				for j in self.tags:
+				self.sums[(pos,i)] = Decimal('0')
+				for j in self.tags.union(set(["$$$"])):
 					self.sums[(pos,i)] += self.products[(pos,i,j)]
 		return self.sums
 	
@@ -237,7 +255,7 @@ class ForwardBackward:
 			self.compute_all_sums
 		self.position_sums = {}
 		for pos in range(len(self.sentence)):
-			self.position_sums[pos] = 0
+			self.position_sums[pos] = Decimal('0')
 			for tag in self.tags:
 				self.position_sums[pos] += self.sums[(pos,tag)]
 		return self.position_sums
@@ -250,8 +268,14 @@ class ForwardBackward:
 		self.products = {}
 		for pos in xrange(len(self.sentence)):
 			for i in self.tags:
-				for j in self.tags:
-					self.products[(pos,i,j)] = self.forward[(pos,i,j)]*self.backward[(pos,i,j)]
+				for j in self.tags.union(set(["$$$"])):
+					forward = self.forward[(pos, i, j)]
+					backward = self.backward[(pos, i,j)]
+					prod = forward*backward
+					#if i == "VZ" and j == "LID":
+					#	print "position", pos, "\nforward", forward, "\nbackward", backward, "\nproduct:", prod
+
+					self.products[(pos,i,j)] = prod
 		return self.products
 					
 
@@ -266,7 +290,7 @@ def find_counts_brute_forse(hmm, sentence, tags):
 		prob = hmm.compute_probability(s, list(sequence))
 		for pos in xrange(len(sequence)):
 			tag = sequence[pos]
-			probs[(pos,tag)] = probs.get((pos,tag),0) + prob
+			probs[(pos,tag)] = probs.get((pos,tag),Decimal('0')) + prob
 	return probs
 
 
