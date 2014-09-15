@@ -6,14 +6,17 @@ blablabla
 import sys
 import copy
 from decimal import *
+import numpy
 
 class HMM2:
 	"""
 	Description of the class
 	"""
-	def __init__(self, transition_probabilities, emission_probabilities):
+	def __init__(self, transition_probabilities, emission_probabilities,tagIDs, wordIDs = None):
 		self.emission = emission_probabilities
 		self.transition = transition_probabilities
+		self.tagIDs = tagIDs
+		self.wordIDs = wordIDs
 #		getcontext.prec = 5000
 	
 	def compute_probability(self, sequence, tags):
@@ -30,16 +33,16 @@ class HMM2:
 			try:
 				prob = prob * self.emission[tag][word]
 			except KeyError:
-				return 0
 				prob = prob *self.get_smoothed_emission(tag,word)
+				return 0
 		#compute transition probabilities
 		for i in xrange(2,len(tags)):
-			tag1, tag2, tag3 = tags[i-2], tags[i-1], tags[i]
+			tag1, tag2, tag3 = self.tagIDs[tags[i-2]], self.tagIDs[tags[i-1]], self.tagIDs[tags[i]]
 			try:
 				prob = prob * self.transition[tag1][tag2][tag3]
 			except KeyError:
-				return 0
 				prob = prob * self.get_smoothed_transition(tag1, tag2, tag3)
+				return 0
 		return prob
 	
 	def get_smoothed_emission(self, tag, word):
@@ -82,12 +85,11 @@ class HMM2:
 		return e_count	
 		
 	def print_trigrams(self):
-		for tag1 in self.transition:
-			print tag1
-			for tag2 in self.transition[tag1]:
-				print '\t\t', tag2
-				for tag3 in self.transition[tag1][tag2]:
-					print '\t\t\t\t', tag3, '\t', self.transition[tag1][tag2][tag3]
+		import itertools
+		tags_iterator = itertools.product(self.tagIDs.keys(),repeat=3)
+		for trigram in tags_iterator:
+			t1, t2, t3 = trigram
+			print t1, '\t\t', t2, '\t\t', t3, '\t\t', self.transition[self.tagIDs[t1], self.tagIDs[t2],self.tagIDs[t3]]
 		return
 	
 	def print_lexicon(self):
