@@ -34,8 +34,9 @@ class Test:
 			assert expected_counts_fb[key].keys() == expected_counts_bf[key].keys(), "keysposition %i expected counts forward backward: %s, expected counts brute forse: %s" % (key, expected_counts_fb[key].keys(), expected_counts_bf[key].keys())
 		#	getcontext().prec = 10
 			for tag in expected_counts_fb[key]:
-				assert abs(expected_counts_fb[key][tag] - expected_counts_bf[key][tag]) < 1e-10, "expected_counts_fb: %f, expected_counts bf: %f" % (expected_counts_fb[key][tag], expected_counts_bf[key][tag])
-		#assert expected_counts_fb == expected_counts_bf
+				assert abs(expected_counts_fb[key][tag] - expected_counts_bf[key][tag]) < 1e-30, "expected_counts_fb: %f, expected_counts bf: %f" % (expected_counts_fb[key][tag], expected_counts_bf[key][tag])
+				print expected_counts_fb[key][tag],'\n', expected_counts_bf[key][tag], '\n\n'
+				#assert expected_counts_fb[key][tag] == expected_counts_bf[key][tag], "expected_counts_fb: %f, expected_counts bf: %f" % (expected_counts_fb[key][tag], expected_counts_bf[key][tag])
 		return
 	
 	def make_toy_hmm(self):

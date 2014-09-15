@@ -107,11 +107,14 @@ class HMM2_generator:
 		i = 0
 		l_dict = copy.copy(lexicon_dict)
 		count_per_tag = Decimal('1')/Decimal(len(tags))
+		#check whether every tag exists in lexicon
+		for tag in tags:
+			l_dict[tag] = l_dict.get(tag,{})
 		for word in words:
 			if word in string.punctuation:
-				#l_dict['LET'][word] = l_dict['LET'].get(word, Decimal('0')) + Decimal(words[word])
+				l_dict['LET'][word] = l_dict['LET'].get(word, Decimal('0')) + Decimal('1') 
 				continue
-			for tag in tags:
+			for tag in tags.difference(['LET']):
 				#l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + Decimal(words[word])*count_per_tag
 				l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + Decimal('1')
 			i += 1
@@ -159,31 +162,20 @@ class HMM2_generator:
 					t_dict[tag1][tag2][tag3] = t_dict[tag1][tag2].get(tag3,Decimal('0')) + Decimal(str(alpha))
 		return t_dict
 	
-	def emission_dict_add_alpha(self, alpha, emission_dict, words):
-		# Dit moet denk ik anders, misschien voor ieder woord
-		# verdelen over alle tags (of gemotiveerd), initially?
-		# Dat zorgt er wel voor dat er meer probabiity mass
-		# gaat naar vaker voorkomende woorden, is dat een probleem?
-		"""
-		Smooth the emission dict with add-alpha smoothing, introducing
-		non-zero parameters for all needed lexical parameters
-		"""
-		e_dict = copy.copy(emission_dict)
-		for tag in emission_dict:
-			for word in words:
-				e_dict[tag][word] = e_dict.get(word,Decimal(0)) + Decimal(str(alpha))
-		return e_dict
-
 	def get_emission_probs(self, word_count_dict):
 		"""
 		Get emission probabilities from a dictionary
 		with tag, word counts
 		"""
 		emission_dict = copy.deepcopy(word_count_dict)
+		emission_dict["$$$"] = {'$$$':1}
+		emission_dict["###"] = {'###':1}
 		for tag in word_count_dict:
 			total = sum(word_count_dict[tag].values())
 			for word in word_count_dict[tag]:
 				emission_dict[tag][word] = word_count_dict[tag][word]/total
+				emission_dict["$$$"][word] = 0
+				emission_dict["###"][word] = 0
 		return emission_dict	
 	
 	def get_transition_probs(self, trigram_count_dict):

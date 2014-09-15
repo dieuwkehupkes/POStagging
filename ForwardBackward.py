@@ -46,9 +46,7 @@ class ForwardBackward:
 				try:
 					d[tag][self.sentence[pos]] += Decimal(expected_counts[pos][tag])
 				except KeyError:
-					print tag, self.sentence[pos]
-					print d[tag][self.sentence[pos]]
-					print expected_counts[pos][tag]
+					d[tag][self.sentence[pos]] = Decimal(expected_counts[pos][tag])
 				
 		return d
 
@@ -100,9 +98,10 @@ class ForwardBackward:
 			probability = 0
 		except:
 			print '\n'.join(['tag: %s, prob: %f' % (tp[1], self.sums[tp]) for tp in self.sums if tp[0] == position])
-			#print 'position', position, '\ntag', tag, '\nsums[position,tags]', self.sums[(position, tag)], '\n\nposition_sums[position', self.position_sums[position]
 			raise ZeroDivisionError
-			probability = 0
+		#	#print 'position', position, '\ntag', tag, '\nsums[position,tags]', self.sums[(position, tag)], '\n\nposition_sums[position', self.position_sums[position]
+		#	raise ZeroDivisionError
+		#	probability = 0
 		return probability
 	
 	def get_smoothed_prob(self,tag,sentence):
@@ -197,7 +196,10 @@ class ForwardBackward:
 			return self.backward[(position,tag1,tag2)]
 		#base case of the recursion
 		if position == len(self.sentence)-1:
-			prob = self.hmm.transition[tag2][tag1]["###"] #I am not entirely sure whether this is correct
+			try:
+				prob = self.hmm.transition[tag2][tag1]["###"] #I am not entirely sure whether this is correct
+			except KeyError:
+				prob = 0
 			self.backward[(position, tag1, tag2)] = prob
 			return prob
 		next_word = self.sentence[position+1]
@@ -207,11 +209,20 @@ class ForwardBackward:
 				lex_prob = self.hmm.emission[tag][next_word]
 			except KeyError:
 				lex_prob = self.get_smoothed_prob(tag, next_word)
+			#print "lexprob %s %s: %f" % (tag, next_word, lex_prob)
 			beta_prob = self.backward_probability(position+1,tag,tag1)
-			trigram_prob = self.hmm.transition[tag2][tag1][tag]
+			#print "beta probability (%i, %s, %s): %f" % (position, tag, tag1, beta_prob)
+			try:
+				trigram_prob = self.hmm.transition[tag2][tag1][tag]
+			except KeyError:
+				trigram_prob = 0
+			#print "trigram probability %s %s %s: %f" % (tag2, tag1, tag, trigram_prob)
 			prob_all = lex_prob*beta_prob*trigram_prob
+			#print "prob_all: %f" % prob_all
 			sum_betas += prob_all
+		#print "sum_betas:", sum_betas
 		self.backward[(position,tag1,tag2)] = sum_betas
+		#print "backward_prob(%i,%s,%s) = %f" % (position, tag1, tag2, sum_betas)
 		return sum_betas
 	
 	def compute_all_backward_probabilities(self):
@@ -240,7 +251,7 @@ class ForwardBackward:
 		for pos in xrange(len(self.sentence)):
 			for i in self.tags:
 				self.sums[(pos,i)] = Decimal('0')
-				for j in self.tags.union(set(["$$$"])):
+				for j in self.tags.union(set(["$$$",'###'])):
 					self.sums[(pos,i)] += self.products[(pos,i,j)]
 		return self.sums
 	
@@ -267,10 +278,16 @@ class ForwardBackward:
 		"""
 		self.products = {}
 		for pos in xrange(len(self.sentence)):
-			for i in self.tags:
-				for j in self.tags.union(set(["$$$"])):
-					forward = self.forward[(pos, i, j)]
-					backward = self.backward[(pos, i,j)]
+			for i in self.tags.union(set(["$$$","###"])):
+				for j in self.tags.union(set(["$$$","###"])):
+					try:
+						forward = self.forward[(pos, i, j)]
+					except KeyError:
+						forward = 0
+					try:
+						backward = self.backward[(pos, i,j)]
+					except KeyError:
+						backward = 0
 					prod = forward*backward
 					#if i == "VZ" and j == "LID":
 					#	print "position", pos, "\nforward", forward, "\nbackward", backward, "\nproduct:", prod
@@ -292,39 +309,4 @@ def find_counts_brute_forse(hmm, sentence, tags):
 			tag = sequence[pos]
 			probs[(pos,tag)] = probs.get((pos,tag),Decimal('0')) + prob
 	return probs
-
-
-if __name__ == '__main__':
-	f = 'test'
-	generator = HMM2_generator()
-	trans_dict, lex_dict = generator.get_hmm_dicts_from_file(f)
-	tags = set(['LID','VZ','$$$','###','N','V'])
-	trans_dict = generator.transition_dict_add_alpha(0.1, trans_dict, tags)
-	lex_dict = generator.emission_dict_add_alpha(0.1, lex_dict, (['de','man','heeft','een','huis']))
-	hmm = generator.make_hmm(trans_dict, lex_dict)
-	#hmm.print_trigrams()
-	#hmm.print_lexicon()
-	s = 'de man heeft een huis'
-	#tags = set(['LID','VZ','$$$','###','N','V', 'ADJ', 'ADV','TW', 'VG','LET','TSW', 'VNW'])
-	training = ForwardBackward(s, hmm, tags)
-	training.compute_all_backward_probabilities()
-	training.compute_all_forward_probabilities()
-	training.compute_all_sums()
-	training.compute_all_position_sums()
-#	print "non-zero forward probabilities:"
-#	print '\n'.join(["alpha%s: %f" % (item[0], item[1]) for item in training.forward.items() if item[1]!=0])
-#	print "\nnon-zero backward probabilities:"
-#	print '\n'.join(["beta%s: %f" % (item[0], item[1]) for item in training.backward.items() if item[1]!=0])
-#	print "\nnon-zero products"
-#	print '\n'.join(["products%s: %f" % (item[0], item[1]) for item in training.products.items() if item[1]!=0])
-#	print "\nnon-zero sums"
-#	print '\n'.join(["sums%s: %f" % (item[0], item[1]) for item in training.sums.items() if item[1]!=0])
-	expected_counts = training.compute_expected_counts(tags)
-#	for position in expected_counts:
-#		print '\n', position, 
-#		for tag in expected_counts[position]:
-#			print '\t', tag, expected_counts[position][tag]
-	probs = find_counts_brute_forse(hmm,s,tags)
-	total1 = sum([probs[tag] for tag in probs.keys() if tag[0]==1])
-	print 'P(1,V)', probs[(1,'V')]/total1
 
