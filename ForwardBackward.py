@@ -47,13 +47,6 @@ class ForwardBackward:
 		expected counts
 		"""
 		lex_dict += expected_counts
-#		for pos in expected_counts:
-#			for tag in expected_counts[pos]:
-#				try:
-#					lex_dict[self.tags[tag]][self.sentence[pos]] += Decimal(str(expected_counts[pos][tag]))
-#				except KeyError:
-#					lex_dict[self.tags[tag]][self.sentence[pos]] = Decimalstr((expected_counts[pos][tag]))
-#				
 		return lex_dict
 
 	def compute_expected_counts(self, expected_counts = None):
