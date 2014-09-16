@@ -11,7 +11,8 @@ class HMM2_generator:
 	Initialise an HMM generator.
 	"""
 	def __init__(self, precision = 50):
-		getcontext().prec = 50
+	 	getcontext().prec = 50
+	       
 
 	def init_transition_matrix(self, tags):
 		"""
@@ -25,6 +26,15 @@ class HMM2_generator:
 		transition_matrix = numpy.zeros(shape=(N,N,N), dtype=Decimal)
 		transition_matrix += Decimal('0.0') 
 		return transition_matrix
+	
+	def init_lexicon_matrix(self, words, nr_of_tags):
+		"""
+		Initialise an empty lexicon matrix.
+		"""
+		nr_of_words = len(words)
+		lexicon_matrix = numpy.zeros(shape=(nr_of_tags, nr_of_words), dtype=Decimal)
+		lexicon_matrix += Decimal('0.0')
+		return lexicon_matrix
 	
 	def get_words_from_file(self, input_file):
 		"""
@@ -56,7 +66,21 @@ class HMM2_generator:
 		self.tagIDs['###'] = i+1
 		return self.tagIDs
 	
-	def get_hmm_dicts_from_file(self, input_file, tags):
+	def generate_lexicon_IDs(self, words):
+		"""
+		Generate a dictionary that stores the relation between
+		words and emission matrix. The ID generated for a 
+		word is the index that can be used to look up the
+		word in the emission matrix
+		"""
+		self.wordIDs = {}
+		i = 0
+		for word in words:
+			self.wordIDs[word] = i
+			i += 1
+		return self.wordIDs
+	
+	def get_hmm_dicts_from_file(self, input_file, tags, words):
 		"""
 		Generate hmm matrices from a file containing lines
 		with words and tags separated by a tab. Sentences are delimited by
@@ -66,25 +90,28 @@ class HMM2_generator:
 		trigrams.
 		"""
 		f = open(input_file,'r')
-		prev_tag, cur_tag = "###", "$$$"	#beginning of sentence
 		trigrams = self.init_transition_matrix(tags)
-		IDs = self.generate_tag_IDs(tags)
-		emission = {}
+		emission = self.init_lexicon_matrix(words, len(tags))
+		wordIDs = self.generate_lexicon_IDs(words)
+		tagIDs = self.generate_tag_IDs(tags)
+		ID_end, ID_start = tagIDs['###'], tagIDs['$$$']
+		prev_tagID, cur_tagID = ID_end, ID_start	#beginning of sentence
 		for line in f:
 			try:
 				word, tag = line.split()
-				trigrams[IDs[prev_tag],IDs[cur_tag], IDs[tag]] += Decimal('1.0')
-				emission = self.add_word_count(emission, tag, word)
-				prev_tag = cur_tag
-				cur_tag = tag
+				wordID, tagID = wordIDs[word], tagIDs[tag]
+				trigrams[prev_tagID,cur_tagID, tagID] += Decimal('1.0')
+				emission[tagID,wordID] += Decimal('1.0')
+				prev_tagID = cur_tagID
+				cur_tagID = tagID
 			except ValueError:
 				#end of sentence
-				trigrams[IDs[prev_tag],IDs[cur_tag], IDs['###']] += Decimal('1.0')
-				prev_tag, cur_tag = "###", "$$$"
+				trigrams[prev_tagID,cur_tagID, ID_end] += Decimal('1.0')
+				prev_tagID, cur_tagID = ID_end, ID_start
 		f.close()
 		#add last trigram if file did not end with white line
-		if prev_tag != "###":
-			trigrams[IDs[prev_tag], IDs[cur_tag], IDs["###"]] += Decimal('1.0')
+		if prev_tagID != ID_end: 
+			trigrams[prev_tagID, cur_tagID, ID_end] += Decimal('1.0')
 		return trigrams, emission
 	
 	def make_hmm(self, trigrams, emission):
@@ -93,43 +120,44 @@ class HMM2_generator:
 		"""
 		transition_dict = self.get_transition_probs(trigrams)
 		emission_dict = self.get_emission_probs(emission)
-		tagIDs = self.tagIDs
-		hmm = HMM2(transition_dict, emission_dict,self.tagIDs)
+		hmm = HMM2(transition_dict, emission_dict,self.tagIDs, self.wordIDs)
 		return hmm
 	
-	def add_word_count(self, word_count_dict, tag, word):
+	def lexicon_dict_add_unlabeled(self, word_dict, lexicon):
 		"""
-		Add tag, word count to a counting dictionary.
-		"""
-		word_count_dict[tag] = word_count_dict.get(tag,{})
-		word_count_dict[tag][word] = word_count_dict[tag].get(word,Decimal('0')) + Decimal('1.0')
-		return word_count_dict
-
-	def lexicon_dict_add_unlabeled(self, word_dict, lexicon_dict, tags):
-		"""
-		For every word in an unlabeled file, add counts to a dictionary
-		with lexicon counts. The counts are equally diveded over all inputted tags,
-		later I could maybe implement something with more sophisticated
-		initial estimations.
+		Add counts to all words in an unlabeled file. It is assumed all
+		words are assigned IDs yet and exist in the emission matrix.
+		Currently the added counts are equally divided over all input tags,
+		and also regardless of how often the word occurred in the unlabeled file.
+		Later I should implement a more sophisticated initial estimation,
+		and do some kind of scaling to prevent the unlabeled words from becoming
+		too influential (or not influential enough).
 		"""
 		words = word_dict
 		i = 0
-		l_dict = copy.copy(lexicon_dict)
 		count_per_tag = Decimal('1')/Decimal(len(tags))
-		#check whether every tag exists in lexicon
-		for tag in tags:
-			l_dict[tag] = l_dict.get(tag,{})
-		for word in words:
-			if word in string.punctuation:
-				l_dict['LET'][word] = l_dict['LET'].get(word, Decimal('0')) + Decimal('1') 
-				continue
-			for tag in tags.difference(['LET']):
-				#l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + Decimal(words[word])*count_per_tag
-				l_dict[tag][word] = l_dict[tag].get(word,Decimal('0')) + Decimal('1')
-			i += 1
-		return l_dict
+		#create set with tagIDs
+		word_IDs, punctuation_IDs = set([]), set([])
+		for word in word_dict:
+			if word not in string.punctuation:
+				word_IDs.add(self.wordIDs[word])
+			else:
+				punctuation_IDs.add(self.wordIDs[word])
+		word_IDs = tuple(word_IDs)
+		if 'LET' in self.tagIDs:
+			punctuation_ID = self.tagIDs['LET'] 
+			lexicon[:punctuation_ID,word_IDs] += count_per_tag
+			lexicon[:punctuation_ID+1:-2, word_IDs] += count_per_tag
+			lexicon[punctuation_ID, tuple(punctuation_IDs)] += Decimal('1.0')
+		else:
+			if len(punctuation_IDs) == 0:
+				lexicon[:-2,word_IDs] += count_per_tag
+			else:
+				print "No punctuation tag is provided"
+				raise KeyError
+		return lexicon
 	
-	def make_word_list(self, unlabeled_file):
+	def unlabeled_make_word_list(self, unlabeled_file):
 		"""
 		Make a dictionary with all words in
 		unlabeled file.
@@ -140,6 +168,22 @@ class HMM2_generator:
 			words = line.split()
 			for word in words:
 				word_dict[word] = word_dict.get(word,0) + 1
+		f.close()
+		return word_dict
+	
+	def labeled_make_word_list(self, labeled_file):
+		"""
+		Make a dictionary with all words in a
+		labeled file.
+		"""
+		f = open(labeled_file, 'r')
+		word_dict = {}
+		for line in f:
+			try:
+				word, tag = line.split()
+				word_dict[word] = word_dict.get(word,0) +1
+			except ValueError:
+				continue
 		f.close()
 		return word_dict
 			
@@ -159,21 +203,15 @@ class HMM2_generator:
 		trigram_count_matrix[-1,:-2,:] = trigram_count_matrix[-1,-1,:] = Decimal('0')
 		return trigram_count_matrix
 	
-	def get_emission_probs(self, word_count_dict):
+	def get_emission_probs(self, lexicon):
 		"""
 		Get emission probabilities from a dictionary
 		with tag, word counts
 		"""
-		emission_dict = copy.deepcopy(word_count_dict)
-		emission_dict["$$$"] = {'$$$':1}
-		emission_dict["###"] = {'###':1}
-		for tag in word_count_dict:
-			total = sum(word_count_dict[tag].values())
-			for word in word_count_dict[tag]:
-				emission_dict[tag][word] = word_count_dict[tag][word]/total
-				emission_dict["$$$"][word] = 0
-				emission_dict["###"][word] = 0
-		return emission_dict	
+		tag_sums = lexicon.sum(axis=1)
+		tag_sums[tag_sums == 0.0] = 1
+		lexicon /= tag_sums[:, numpy.newaxis]
+		return lexicon	
 	
 	def get_transition_probs(self, trigram_count_matrix):
 		"""
@@ -192,11 +230,13 @@ class HMM2_generator:
 if __name__ == '__main__':
 	f = sys.argv[1]
 	generator = HMM2_generator()
+	words_labeled = generator.labeled_make_word_list(f)
+	words_unlabeled = set(['een','hond','loopt','naar','huis'])
+	words = set(words_labeled.keys()).union(words_unlabeled)
 	tags = set(['N','V','LID','VZ'])
-	d1, d2 = generator.get_hmm_dicts_from_file(f, tags)
+	d1, d2 = generator.get_hmm_dicts_from_file(f, tags, words)
 	d1 = generator.transition_dict_add_alpha(0.1, d1)
-	words = set(['een','hond','loopt','naar','huis'])
-	d2 = generator.lexicon_dict_add_unlabeled(words, d2, tags)
+	d2 = generator.lexicon_dict_add_unlabeled(words, d2)
 	hmm = generator.make_hmm(d1, d2)
 	#hmm.print_trigrams()
 	sequence = 'een hond loopt naar huis'.split()

@@ -12,7 +12,7 @@ class HMM2:
 	"""
 	Description of the class
 	"""
-	def __init__(self, transition_probabilities, emission_probabilities,tagIDs, wordIDs = None):
+	def __init__(self, transition_probabilities, emission_probabilities, tagIDs, wordIDs):
 		self.emission = emission_probabilities
 		self.transition = transition_probabilities
 		self.tagIDs = tagIDs
@@ -28,11 +28,14 @@ class HMM2:
 		prob = Decimal('1.0')
 		#compute emission probabilities
 		for i in xrange(len(sequence)):
-			word = sequence[i]
-			tag = tags[i+2]
+			wordID = self.wordIDs[sequence[i]]
+			tagID = self.tagIDs[tags[i+2]]
 			try:
-				prob = prob * self.emission[tag][word]
-			except KeyError:
+				prob = prob * self.emission[tagID,wordID]
+			except IndexError:
+				# Except will possibly be used when the tagger
+				# is extended to work for new files
+				print "No lexical probability available"
 				prob = prob *self.get_smoothed_emission(tag,word)
 				return 0
 		#compute transition probabilities
@@ -40,7 +43,10 @@ class HMM2:
 			tag1, tag2, tag3 = self.tagIDs[tags[i-2]], self.tagIDs[tags[i-1]], self.tagIDs[tags[i]]
 			try:
 				prob = prob * self.transition[tag1][tag2][tag3]
-			except KeyError:
+			except IndexError:
+				# Except will possibly be used when the tagger
+				# is extended to work for new files
+				print "No transition probability available"
 				prob = prob * self.get_smoothed_transition(tag1, tag2, tag3)
 				return 0
 		return prob
@@ -82,7 +88,7 @@ class HMM2:
 					e_count[position][tag] = probs[(position,tag)]/totals[position]
 				except ZeroDivisionError:
 					e_count[position][tag] = 0
-		return e_count	
+		return e_count
 		
 	def print_trigrams(self):
 		import itertools
@@ -93,9 +99,7 @@ class HMM2:
 		return
 	
 	def print_lexicon(self):
-		for tag in self.emission:
-			print tag
-			for word in self.emission[tag]:
-				print '\t\t\t', word, '\t', self.emission[tag][word]
+		for word in self.wordIDs.keys():
+			pass
+		raise NotImplementedError
 		return
-	
