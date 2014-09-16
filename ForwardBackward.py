@@ -31,6 +31,7 @@ class ForwardBackward:
 			raise TypeError("Sentence should be of type string or list")
 		self.hmm = hmm2
 		self.tagIDs = hmm2.tagIDs
+		self.wordIDs = hmm2.wordIDs
 		#Use this as long as the lexicon is not yet in matrix form
 		self.tags_i= dict((x,y) for y,x in self.tagIDs.iteritems())
 		self.nr_of_tags = len(self.tagIDs) -2
@@ -118,7 +119,7 @@ class ForwardBackward:
 			self.forward[(position,tagID1,tagID2)] = Decimal('0.0')
 			return Decimal('0.0')
 
-		word = self.sentence[position]
+		wordID = self.wordIDs[self.sentence[position]]
 		
 		#base case of the recursion
 		if position == 0:
@@ -127,10 +128,11 @@ class ForwardBackward:
 				return 0
 			else:
 				try:
-					tag = self.tags_i[tagID1]
-					prob = self.hmm.emission[tag][word]*self.hmm.transition[-1,-2,tagID1]
+					prob = self.hmm.emission[tagID1, wordID]*self.hmm.transition[-1,-2,tagID1]
 				except KeyError:
-					prob = self.get_smoothed_prob(tagID1,word) * self.hmm.transition[-1,-2,tagID1]
+					#shouldn't be needed now
+					print "lexical probability has no entry"
+					prob = self.get_smoothed_prob(tagID1,wordID) * self.hmm.transition[-1,-2,tagID1]
 				self.forward[(position,tagID1,tagID2)] = prob
 				return prob
 
@@ -141,10 +143,11 @@ class ForwardBackward:
 
 		#position further in the sentence
 		try:
-			tag = self.tags_i[tagID1]
-			e_prob = self.hmm.emission[tag][word]
+			e_prob = self.hmm.emission[tagID1,wordID]
 		except KeyError:
-			e_prob = self.get_smoothed_prob(tagID1, word)
+			#shouldn't be needed now
+			print "no lexical entry for", tagID1, wordID
+			e_prob = self.get_smoothed_prob(tagID1, wordID)
 		#marginalise over possible tags
 		sum_alpha = 0
 		for tagID in xrange(self.nr_of_tags +1):
@@ -191,13 +194,14 @@ class ForwardBackward:
 				prob = 0
 			self.backward[(position, tagID1, tagID2)] = prob
 			return prob
-		next_word = self.sentence[position+1]
+		next_wordID = self.wordIDs[self.sentence[position+1]]
 		sum_betas = 0
 		for tagID in xrange(self.nr_of_tags):
 			try:
-				tag = self.tags_i[tagID]
-				lex_prob = self.hmm.emission[tag][next_word]
+				lex_prob = self.hmm.emission[tagID,next_wordID]
 			except KeyError:
+				#shouldn't be needed now
+				print "lexical probability missing"
 				lex_prob = self.get_smoothed_prob(tagID, next_word)
 			#print "lexprob %s %s: %f" % (tag, next_word, lex_prob)
 			try:
@@ -210,6 +214,8 @@ class ForwardBackward:
 			try:
 				trigram_prob = self.hmm.transition[tagID2][tagID1][tagID]
 			except KeyError:
+				#shouldn't be needed now
+				print "trigram probability missing"
 				trigram_prob = 0
 			#print "trigram probability %s %s %s: %f" % (tagID2, tagID1, tag, trigram_prob)
 			prob_all = lex_prob*beta_prob*trigram_prob

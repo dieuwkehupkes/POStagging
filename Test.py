@@ -22,6 +22,7 @@ class Test:
 		tags = set(['LID','VZ','N','WW'])
 		s = "de man heeft een huis"
 		training = ForwardBackward(s,hmm,tags)
+
 		#training.compute_all_forward_probabilities()
 		#for key in training.forward:
 		#	print key, training.forward[key]
@@ -44,11 +45,13 @@ class Test:
 		f.write("de\tLID\nman\tN\nloopt\tWW\nnaar\tVZ\nhuis\tN\n\nde\tLID\nman\tN\nheeft\tWW\neen\tLID\nhond\tN\nmet\tVZ\neen\tLID\nstaart\tN\n\nhet\tLID\nhuis\tN\nheeft\tWW\neen\tLID\ndeur\tN")
 		f.close()
 		generator = HMM2_generator()
+		words_labeled = generator.labeled_make_word_list('test1')
+		words_unlabeled = {'de': 1, 'man': 1, 'heeft': 1, 'een': 1, 'huis':1}
+		all_words = set(words_labeled.keys()).union(set(words_unlabeled.keys()))
 		tags = set(['LID','VZ','N','WW'])
-		trans_dict, lex_dict = generator.get_hmm_dicts_from_file('test1',tags)
-		trans_dict = generator.transition_dict_add_alpha(1, trans_dict)
-		word_dict = {'de': 1, 'man': 1, 'heeft': 1, 'een': 1, 'huis':1}
-		lex_dict = generator.lexicon_dict_add_unlabeled(word_dict, lex_dict, tags)
+		trans_dict, lex_dict = generator.get_hmm_dicts_from_file('test1',tags, all_words)
+		trans_dict = generator.transition_dict_add_alpha(0.5, trans_dict)
+		lex_dict = generator.lexicon_dict_add_unlabeled(words_unlabeled, lex_dict)
 		hmm = generator.make_hmm(trans_dict, lex_dict)
 		os.remove('test1')
 		return hmm

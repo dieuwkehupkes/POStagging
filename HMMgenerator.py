@@ -135,7 +135,7 @@ class HMM2_generator:
 		"""
 		words = word_dict
 		i = 0
-		count_per_tag = Decimal('1')/Decimal(len(tags))
+		count_per_tag = Decimal('1')/Decimal(lexicon.shape[0]-1)
 		#create set with tagIDs
 		word_IDs, punctuation_IDs = set([]), set([])
 		for word in word_dict:
