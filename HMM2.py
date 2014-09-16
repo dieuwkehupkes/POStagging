@@ -77,17 +77,19 @@ class HMM2:
 			prob = self.compute_probability(s, list(sequence))
 			for pos in xrange(len(sequence)):
 				tag = sequence[pos]
-				probs[(pos,tag)] = probs.get((pos,tag),Decimal('0')) + prob
+				tagID = self.tagIDs[tag]
+				probs[(pos,tagID)] = probs.get((pos,tagID),Decimal('0')) + prob
+#			if sequence[1] == 'N':
+				#print "new probability of word", s[1], "being N:", probs[(1,self.tagIDs['N'])]
 		#compute totals for each position
-		totals, e_count = {}, {}
+		totals, e_count = {}, numpy.zeros(shape=self.emission.shape,dtype=Decimal)
+		e_count += Decimal('0.0')
 		for position in xrange(len(s)):
-			e_count[position] = {}
+			wordID = self.wordIDs[s[position]]
 			totals[position] = sum([probs[x] for x in probs.keys() if x[0] == position])
 			for tag in tags:
-				try:
-					e_count[position][tag] = probs[(position,tag)]/totals[position]
-				except ZeroDivisionError:
-					e_count[position][tag] = 0
+				tagID = self.tagIDs[tag]
+				e_count[tagID, wordID] += (probs[(position, tagID)]/totals[position])
 		return e_count
 		
 	def print_trigrams(self):

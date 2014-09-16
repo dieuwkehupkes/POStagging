@@ -46,30 +46,38 @@ class ForwardBackward:
 		Update the inputted lexical dictionary with the
 		expected counts
 		"""
-		for pos in expected_counts:
-			for tag in expected_counts[pos]:
-				try:
-					lex_dict[self.tags[tag]][self.sentence[pos]] += Decimal(str(expected_counts[pos][tag]))
-				except KeyError:
-					lex_dict[self.tags[tag]][self.sentence[pos]] = Decimalstr((expected_counts[pos][tag]))
-				
+		lex_dict += expected_counts
+#		for pos in expected_counts:
+#			for tag in expected_counts[pos]:
+#				try:
+#					lex_dict[self.tags[tag]][self.sentence[pos]] += Decimal(str(expected_counts[pos][tag]))
+#				except KeyError:
+#					lex_dict[self.tags[tag]][self.sentence[pos]] = Decimalstr((expected_counts[pos][tag]))
+#				
 		return lex_dict
 
-	def compute_expected_counts(self):
+	def compute_expected_counts(self, expected_counts = None):
 		"""
 		Compute the counts for every tag at every possible position
 		"""
-		expected_counts = {}
+		#initialise an empty expected counts matrix or use inputted one
+		if expected_counts:
+			pass
+		else:
+			expected_counts = numpy.zeros(shape=self.hmm.emission.shape, dtype = Decimal)
+			expected_counts += Decimal('0.0')
 		self.compute_all_forward_probabilities()
 		self.compute_all_backward_probabilities()
 		self.compute_all_products()
 		self.compute_all_sums()
 		self.compute_all_position_sums()
+		#I think I should be able to do this in one go with some matrix multiplication
+		#I will figure that out later once I have made everything into matrices
 		for i in xrange(len(self.sentence)):
-			expected_counts[i] = {}	
+			wordID = self.wordIDs[self.sentence[i]]
 			for tagID in xrange(self.nr_of_tags):
 				prob = self.compute_tag_probability(i,tagID)
-				expected_counts[i][self.tags_i[tagID]] = prob
+				expected_counts[tagID, wordID] += prob
 		return expected_counts
 	
 	def compute_tag_probability(self, position, tagID):

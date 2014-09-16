@@ -18,8 +18,8 @@ class Test:
 		Test if forward backward algorithm computes
 		the same expected counts as bruteforce algorithm
 		"""
-		hmm = self.toy_hmm_smoothed()
-		tags = set(['LID','VZ','N','WW'])
+		hmm = self.toy_hmm()
+		tags = set(['LID', 'VZ', 'N', 'WW'])
 		s = "de man heeft een huis"
 		training = ForwardBackward(s,hmm,tags)
 
@@ -28,10 +28,7 @@ class Test:
 		#	print key, training.forward[key]
 		expected_counts_fb = training.compute_expected_counts()
 		expected_counts_bf = hmm.expected_counts_brute_forse(s, tags)
-		print expected_counts_bf[training.tagIDs['N'],training.wordIDs['man']]
-		print expected_counts_fb[training.tagIDs['N'],training.wordIDs['man']]
-		print expected_counts_bf - expected_counts_fb
-		print abs(expected_counts_bf - expected_counts_fb) < 1e-30
+		assert numpy.array_equal(expected_counts_bf, expected_counts_fb), expected_counts_bf == expected_counts_fb
 		return
 	
 	def test_generation(self):
@@ -110,7 +107,7 @@ class Test:
 		"""
 		self.test_generation()
 		self.test_HMM2_compute_probability()
-		#self.test_correctness_expected_counts1()
+		self.test_correctness_expected_counts1()
 		return
 	
 if __name__ == '__main__':
