@@ -286,6 +286,8 @@ class ForwardBackward:
 		with the same variables.
 		"""
 		#transform to matrix multiplications
+		self.products = numpy.multiply(self.forward, self.backward)
+		return self.products
 		self.products = {}
 		for pos, i, j in itertools.product(xrange(len(self.sentence)),xrange(self.N +2), xrange(self.N+2)):
 				try:
@@ -296,7 +298,6 @@ class ForwardBackward:
 				try:
 					backward = self.backward[pos, i,j]
 				except KeyError:
-					print "hier hoor ik niet te komen"
 					backward = 0
 				prod = forward*backward
 				self.products[(pos,i,j)] = prod
