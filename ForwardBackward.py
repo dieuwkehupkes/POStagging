@@ -76,7 +76,7 @@ class ForwardBackward:
 		for the sentence are already computed
 		"""
 		try:
-			probability = self.sums[(position,tagID)]/self.position_sums[position]
+			probability = self.sums[position,tagID]/self.position_sums[position]
 		except KeyError:
 			raise ValueError("Compute sums and position sums")
 		except ValueError:
@@ -85,7 +85,7 @@ class ForwardBackward:
 			probability = 0
 		except:
 			#print '\n'.join(['tag: %s, prob: %f' % (tp[1], self.sums[tp]) for tp in self.sums if tp[0] == position])
-			print 'position', position, '\ntag', tagID, '\nsums[position,tags]', self.sums[(position, tagID)], '\n\nposition_sums[position', self.position_sums[position]
+			print 'position', position, '\ntag', tagID, '\nsums[position,tags]', self.sums[position, tagID], '\n\nposition_sums[position', self.position_sums[position]
 			raise ZeroDivisionError
 		return probability
 	
@@ -252,16 +252,7 @@ class ForwardBackward:
 		This function can only be used AFTER computing the forward-
 		and backward probabilities.
 		"""
-		try:
-			self.products == {}
-		except AttributeError:
-			self.compute_all_products()
-		self.sums = {}
-		for pos in xrange(len(self.sentence)):
-			for i in xrange(self.N):
-				self.sums[(pos,i)] = Decimal('0')
-				for j in xrange(self.N +2):
-					self.sums[(pos,i)] += self.products[(pos,i,j)]
+		self.sums = self.products.sum(axis=2)
 		return self.sums
 	
 	def compute_all_position_sums(self):
@@ -269,15 +260,7 @@ class ForwardBackward:
 		Compute the total probability mass going to a tag position.
 		Used for normalisation.
 		"""
-		try:
-			self.sums == {}
-		except AttributeError:
-			self.compute_all_sums
-		self.position_sums = {}
-		for pos in range(len(self.sentence)):
-			self.position_sums[pos] = Decimal('0')
-			for tagID in xrange(self.N):
-				self.position_sums[pos] += self.sums[(pos,tagID)]
+		self.position_sums = self.sums.sum(axis=1)
 		return self.position_sums
 					
 	def compute_all_products(self):
@@ -285,21 +268,6 @@ class ForwardBackward:
 		Compute the products of all forward and backward probabilities
 		with the same variables.
 		"""
-		#transform to matrix multiplications
 		self.products = numpy.multiply(self.forward, self.backward)
-		return self.products
-		self.products = {}
-		for pos, i, j in itertools.product(xrange(len(self.sentence)),xrange(self.N +2), xrange(self.N+2)):
-				try:
-					forward = self.forward[pos, i, j]
-				except KeyError:
-					print "hier hoor ik niet te komen"
-					forward = 0
-				try:
-					backward = self.backward[pos, i,j]
-				except KeyError:
-					backward = 0
-				prod = forward*backward
-				self.products[(pos,i,j)] = prod
 		return self.products
 					
