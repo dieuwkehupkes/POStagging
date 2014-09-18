@@ -17,7 +17,6 @@ class HMM2:
 		self.transition = transition_probabilities
 		self.tagIDs = tagIDs
 		self.wordIDs = wordIDs
-#		getcontext.prec = 5000
 	
 	def compute_probability(self, sequence, tags):
 		"""
