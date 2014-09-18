@@ -11,8 +11,7 @@ class HMM2_generator:
 	Initialise an HMM generator.
 	"""
 	def __init__(self, precision = 50):
-	 	getcontext().prec = 50
-	       
+	 	getcontext().prec = precision
 
 	def init_transition_matrix(self, tags):
 		"""
