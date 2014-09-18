@@ -4,6 +4,7 @@ A class to efficiently compute expected counts using the forward-backward algori
 TODO:
 compute backward probabilities with matrix multiplications
 compute expected counts with matrix multiplications
+to save memory: try whether using floats maybe suffices
 """
 
 from HMM2 import *
@@ -94,67 +95,27 @@ class ForwardBackward:
 		self.forward = forward
 		return
 
-	def backward_probability(self, position, tagID1, tagID2):
-		"""
-		Recursively compute backward probabilities. Make use of 
-		previously computed probabilies to avoid recomputing.
-		Counting starts at 0.
-		"""
-		#print 'compute bacward probability for', position, tagID1, tagID2
-		#check if backward probability was previously computed
-		if (position, tagID1, tagID2) in self.backward:
-			return self.backward[(position,tagID1,tagID2)]
-		#base case of the recursion
-		if position == len(self.sentence)-1:
-			try:
-				prob = self.hmm.transition[tagID2,tagID1,-1] #I am not entirely sure whether this is correct
-			except KeyError:
-				prob = 0
-			self.backward[(position, tagID1, tagID2)] = prob
-			return prob
-		next_wordID = self.wordIDs[self.sentence[position+1]]
-		sum_betas = 0
-		for tagID in xrange(self.N+2):
-			try:
-				lex_prob = self.hmm.emission[tagID,next_wordID]
-			except KeyError:
-				#shouldn't be needed now
-				print "lexical probability missing"
-				lex_prob = self.get_smoothed_prob(tagID, next_word)
-			#print "lexprob %s %s: %f" % (tag, next_word, lex_prob)
-			try:
-				beta_prob = self.backward[(position+1,tagID,tagID1)]
-			except KeyError:
-				beta_prob = self.backward_probability(position+1,tagID,tagID1)
-
-			#print "beta probability (%i, %s, %s): %f" % (position, tag, tag1, beta_prob)
-			try:
-				trigram_prob = self.hmm.transition[tagID2][tagID1][tagID]
-			except KeyError:
-				#shouldn't be needed now
-				print "trigram probability missing"
-				trigram_prob = 0
-			#print "trigram probability %s %s %s: %f" % (tagID2, tagID1, tag, trigram_prob)
-			prob_all = lex_prob*beta_prob*trigram_prob
-			#print "prob_all: %f" % prob_all
-			sum_betas += prob_all
-		#print "sum_betas:", sum_betas
-		self.backward[(position,tagID1,tagID2)] = sum_betas
-		#print "backward_prob(%i,%s,%s) = %f" % (position, tagID1, tagID2, sum_betas)
-		return sum_betas
-	
 	def compute_all_backward_probabilities(self):
-			"""
-			Compute all backward probabilities for the sentence
-			"""
-			for position, tagID1, tagID2 in itertools.product(reversed(xrange(len(self.sentence))),xrange(self.N+2),xrange(self.N+2)):
-					#compute backward probability
-					self.backward_probability(position,tagID1,tagID2)
-			backward_matrix = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = Decimal)
-			for position, tagID1, tagID2 in self.backward:
-				backward_matrix[position, tagID1, tagID2] = self.backward[(position, tagID1, tagID2)]
-			self.backward = backward_matrix
-			return
+		"""
+		Compute all backward probabilities for the sentence
+		"""
+		backward = numpy.zeros(shape=(len(self.sentence), self.N+2, self.N+2), dtype = Decimal)
+
+		#Compute the values for the base case of the recursion
+		backward[len(self.sentence)-1]= self.hmm.transition[:,:,-1].transpose()
+
+		for pos in reversed(xrange(len(self.sentence)-1)):
+			next_wordID = self.wordIDs[self.sentence[pos+1]]
+			for tagID1 in xrange(self.N+2):
+				for tagID2 in xrange(self.N+2):
+					start = Decimal('0.0')
+					for tagID3 in xrange(self.N+2):
+						start += self.hmm.emission[tagID3,next_wordID]*backward[pos+1,tagID3,tagID1]*self.hmm.transition[tagID2,tagID1,tagID3]
+					#backward[pos,tagID1,tagID2] = (self.hmm.emission[:,next_wordID]*backward[pos+1,:,tagID1]*self.hmm.transition[tagID2,tagID1,:])
+					backward[pos, tagID1, tagID2] = start
+
+		self.backward = backward
+		return
 	
 	def compute_all_sums(self):
 		"""
