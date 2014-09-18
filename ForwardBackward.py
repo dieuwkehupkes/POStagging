@@ -108,9 +108,10 @@ class ForwardBackward:
 		#fill the rest of the matrix
 		for pos in reversed(xrange(len(self.sentence)-1)):
 			next_wordID = self.wordIDs[self.sentence[pos+1]]
-			for tagID1 in xrange(self.N+2):
-				for tagID2 in xrange(self.N+2):
-					backward[pos,tagID1, tagID2] = (self.hmm.emission[:,next_wordID]*backward[pos+1, :, tagID1]*self.hmm.transition[tagID2, tagID1, :]).sum()
+			M = (backward[pos+1,:,:]*self.hmm.emission[:,next_wordID,numpy.newaxis]).transpose()
+			fsums= self.hmm.transition.transpose(1, 0, 2)*M[:, numpy.newaxis,:]
+			backward[pos] = fsums.sum(axis=2)
+
 		self.backward = backward
 		return
 	
