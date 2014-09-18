@@ -1,7 +1,8 @@
 """
-I should write a test module to see if the
-forward and backward probabilities are really computed correctly
+Test Module
 """
+
+#I should write something that tests if the smoothed probabilities are alright
 
 import os
 from ForwardBackward import *
@@ -18,17 +19,14 @@ class Test:
 		Test if forward backward algorithm computes
 		the same expected counts as bruteforce algorithm
 		"""
-		hmm = self.toy_hmm()
+		hmm = self.toy_hmm_smoothed()
 		tags = set(['LID', 'VZ', 'N', 'WW'])
 		s = "de man heeft een huis"
 		training = ForwardBackward(s,hmm,tags)
 
-		#training.compute_all_forward_probabilities()
-		#for key in training.forward:
-		#	print key, training.forward[key]
 		expected_counts_fb = training.compute_expected_counts()
 		expected_counts_bf = hmm.expected_counts_brute_forse(s, tags)
-		assert numpy.array_equal(expected_counts_bf, expected_counts_fb), expected_counts_bf == expected_counts_fb
+		assert numpy.all(abs(expected_counts_bf- expected_counts_fb) < 1e-50), expected_counts_bf == expected_counts_fb
 		return
 	
 	def test_generation(self):
@@ -72,7 +70,7 @@ class Test:
 		f = open('test1','w')
 		f.write("de\tLID\nman\tN\nloopt\tWW\nnaar\tVZ\nhuis\tN\n\nde\tLID\nman\tN\nheeft\tWW\neen\tLID\nhond\tN\nmet\tVZ\neen\tLID\nstaart\tN\n\nhet\tLID\nhuis\tN\nheeft\tWW\neen\tLID\ndeur\tN")
 		f.close()
-		generator = HMM2_generator()
+		generator = HMM2_generator(precision=500)
 		words_labeled = generator.labeled_make_word_list('test1')
 		words_unlabeled = {'de': 1, 'man': 1, 'loopt': 1, 'naar': 1, 'huis':1}
 		all_words = set(words_labeled.keys()).union(set(words_unlabeled.keys()))
@@ -89,7 +87,7 @@ class Test:
 		f = open('test1','w')
 		f.write("de\tLID\nman\tN\nloopt\tWW\nnaar\tVZ\nhuis\tN\n\nde\tLID\nman\tN\nheeft\tWW\neen\tLID\nhond\tN\nmet\tVZ\neen\tLID\nstaart\tN\n\nhet\tLID\nhuis\tN\nheeft\tWW\neen\tLID\ndeur\tN")
 		f.close()
-		generator = HMM2_generator()
+		generator = HMM2_generator(precision=100)
 		words_labeled = generator.labeled_make_word_list('test1')
 		words_unlabeled = {'de': 1, 'man': 1, 'heeft': 1, 'een': 1, 'huis':1}
 		all_words = set(words_labeled.keys()).union(set(words_unlabeled.keys()))
