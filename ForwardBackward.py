@@ -1,7 +1,9 @@
 """
 A class to efficiently compute expected counts using the forward-backward algorithm
 
-DON'T FORGET TO INCLUDE ENDING AND STARTING COUNTS IN EXPECTED COUNTS!
+TODO:
+compute backward probabilities with matrix multiplications
+compute expected counts with matrix multiplications
 """
 
 from HMM2 import *
@@ -15,7 +17,7 @@ class ForwardBackward:
 	the sentence. Initialise with an HMM model,
 	a set of possible tags and a sentence.
 	"""
-	def __init__(self, sentence, hmm2, precision=100):
+	def __init__(self, sentence, hmm2, precision=200):
 		"""
 		:param sentence: A tokenised sentence, either a string or a list of words
 		:param hmm2: A second order hmm model
@@ -30,9 +32,6 @@ class ForwardBackward:
 		self.N = len(self.tagIDs) -2
 		self.ID_start = self.tagIDs['$$$']
 		self.ID_end = self.tagIDs['###']
-		#self.forward = numpy.zeros(shape=(len_sentence,self.N, self.N))
-		#self.backward = numpy.zeros(shape=(len_sentence,self.N, self.N))
-		self.forward = {}
 		self.backward = {}
 		getcontext.prec = precision
 	
@@ -59,11 +58,9 @@ class ForwardBackward:
 		self.compute_all_products()
 		self.compute_all_sums()
 		self.compute_all_position_sums()
-		#I think I should be able to do this in one go with some matrix multiplication
-		#I will figure that out later once I have made everything into matrices
 		for i in xrange(len(self.sentence)):
 			wordID = self.wordIDs[self.sentence[i]]
-			for tagID in xrange(self.N):
+			for tagID in xrange(self.N+2):
 				prob = self.compute_tag_probability(i,tagID)
 				expected_counts[tagID, wordID] += prob
 		return expected_counts
@@ -75,101 +72,15 @@ class ForwardBackward:
 		It is assumed that all forward and backward probabilities
 		for the sentence are already computed
 		"""
-		try:
-			probability = self.sums[position,tagID]/self.position_sums[position]
-		except KeyError:
-			raise ValueError("Compute sums and position sums")
-		except ValueError:
-			raise ValueError("Forward and backward probabilities should be computed before computing tag probabilities")
-		except ZeroDivisionError:
-			probability = 0
-		except:
-			#print '\n'.join(['tag: %s, prob: %f' % (tp[1], self.sums[tp]) for tp in self.sums if tp[0] == position])
-			print 'position', position, '\ntag', tagID, '\nsums[position,tags]', self.sums[position, tagID], '\n\nposition_sums[position', self.position_sums[position]
-			raise ZeroDivisionError
+		probability = self.sums[position,tagID]/self.position_sums[position]
 		return probability
 	
-	def get_smoothed_prob(self,tag,sentence):
-		"""
-		Get smoothed probability for a word-tag pair that did not
-		occur in the dictionary. This function is mainly included
-		for more flexibility later, as smoothing probabilities is likely
-		to be conducted before starting EM. Currently the returned
-		'smoothed' probability is just 0.
-		"""
-		return 0
-
-	
-	def forward_probability(self, position, tagID1, tagID2):
-		"""
-		Compute forward probabilities. Note that although this is in
-		principle a recursive algorithm, it only executes well when
-		all required values are computed iteratively in the right order.
-		If a value required to compute a forward probability is not computed
-		prior to the to be computed forward probability, it will be taken
-		as 0, and the forward probability will therefore evaluate to a lower
-		number that it actually is.
-		#should I do something about that?
-		Note that the position starts counting at 0.
-		"""
-		#if forward probability is already computed, return
-		if (position, tagID1, tagID2) in self.forward:
-			return self.forward[(position, tagID1, tagID2)]
-		# tag $$$ or tag ### never occur for words
-		if tagID1 == self.ID_start or tagID1 == self.ID_end:
-			self.forward[(position,tagID1,tagID2)] = Decimal('0.0')
-			return Decimal('0.0')
-
-		wordID = self.wordIDs[self.sentence[position]]
-		
-		#base case of the recursion
-		if position == 0:
-			if tagID2 != self.ID_start:
-				self.forward[(position,tagID1, tagID2)] = 0
-				return 0
-			else:
-				try:
-					prob = self.hmm.emission[tagID1, wordID]*self.hmm.transition[-1,-2,tagID1]
-				except KeyError:
-					#shouldn't be needed now
-					print "lexical probability has no entry"
-					prob = self.get_smoothed_prob(tagID1,wordID) * self.hmm.transition[-1,-2,tagID1]
-				self.forward[(position,tagID1,tagID2)] = prob
-				return prob
-
-		if tagID2 == self.ID_start or tagID2 == self.ID_end:
-			#if position is not 0, tag of previous word cannot be $$$ or ###
-			self.forward[(position,tagID1,tagID2)] = Decimal(0.0)
-			return Decimal(0.0)
-
-		#position further in the sentence
-		try:
-			e_prob = self.hmm.emission[tagID1,wordID]
-		except KeyError:
-			#shouldn't be needed now
-			print "no lexical entry for", tagID1, wordID
-			e_prob = self.get_smoothed_prob(tagID1, wordID)
-		#marginalise over possible tags
-		sum_alpha = 0
-		for tagID in xrange(self.N +1):
-			try:
-				new_alpha = self.forward[(position-1,tagID2,tagID)]
-			except KeyError:
-				print "define iteration differently"
-				new_alpha = self.forward(position-1,tagID2,tagID)
-			new_transition = self.hmm.transition[tagID,tagID2,tagID1]
-			sum_alpha += new_alpha*new_transition
-		e_prob = e_prob * sum_alpha		
-		self.forward[(position,tagID1,tagID2)] = e_prob
-		return e_prob
-
 	def compute_all_forward_probabilities(self):
 		"""
 		Iterative algorithm to compute all forward
 		probabilities.
 		"""
 		forward = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = Decimal)
-		f = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = Decimal)
 
 		#compute the base case of the recursion (position=0)
 		wordID = self.wordIDs[self.sentence[0]]
@@ -203,7 +114,7 @@ class ForwardBackward:
 			return prob
 		next_wordID = self.wordIDs[self.sentence[position+1]]
 		sum_betas = 0
-		for tagID in xrange(self.N):
+		for tagID in xrange(self.N+2):
 			try:
 				lex_prob = self.hmm.emission[tagID,next_wordID]
 			except KeyError:
@@ -214,7 +125,6 @@ class ForwardBackward:
 			try:
 				beta_prob = self.backward[(position+1,tagID,tagID1)]
 			except KeyError:
-				print "Backward probs, change iteration order"
 				beta_prob = self.backward_probability(position+1,tagID,tagID1)
 
 			#print "beta probability (%i, %s, %s): %f" % (position, tag, tag1, beta_prob)
@@ -237,7 +147,7 @@ class ForwardBackward:
 			"""
 			Compute all backward probabilities for the sentence
 			"""
-			for position, tagID1, tagID2 in itertools.product(reversed(xrange(len(self.sentence))),xrange(self.N),xrange(self.N+1)):
+			for position, tagID1, tagID2 in itertools.product(reversed(xrange(len(self.sentence))),xrange(self.N+2),xrange(self.N+2)):
 					#compute backward probability
 					self.backward_probability(position,tagID1,tagID2)
 			backward_matrix = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = Decimal)
