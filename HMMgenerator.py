@@ -32,7 +32,7 @@ class HMM2_generator:
 		Initialise an empty lexicon matrix.
 		"""
 		nr_of_words = len(words)
-		lexicon_matrix = numpy.zeros(shape=(nr_of_tags, nr_of_words), dtype=Decimal)
+		lexicon_matrix = numpy.zeros(shape=(nr_of_tags+2, nr_of_words), dtype=Decimal)
 		lexicon_matrix += Decimal('0.0')
 		return lexicon_matrix
 	
@@ -101,7 +101,7 @@ class HMM2_generator:
 				word, tag = line.split()
 				wordID, tagID = wordIDs[word], tagIDs[tag]
 				trigrams[prev_tagID,cur_tagID, tagID] += Decimal('1.0')
-				emission[tagID,wordID] += Decimal('1.0')
+				emission[tagID, wordID] += Decimal('1.0')
 				prev_tagID = cur_tagID
 				cur_tagID = tagID
 			except ValueError:
@@ -135,7 +135,6 @@ class HMM2_generator:
 		"""
 		words = word_dict
 		i = 0
-		count_per_tag = Decimal('1')/Decimal(lexicon.shape[0]-1)
 		#create set with tagIDs
 		word_IDs, punctuation_IDs = set([]), set([])
 		for word in word_dict:
@@ -145,11 +144,13 @@ class HMM2_generator:
 				punctuation_IDs.add(self.wordIDs[word])
 		word_IDs = tuple(word_IDs)
 		if 'LET' in self.tagIDs:
+			count_per_tag = Decimal('1')/Decimal(lexicon.shape[0]-3)
 			punctuation_ID = self.tagIDs['LET'] 
 			lexicon[:punctuation_ID,word_IDs] += count_per_tag
 			lexicon[:punctuation_ID+1:-2, word_IDs] += count_per_tag
 			lexicon[punctuation_ID, tuple(punctuation_IDs)] += Decimal('1.0')
 		else:
+			count_per_tag = Decimal('1')/Decimal(lexicon.shape[0]-2)
 			if len(punctuation_IDs) == 0:
 				lexicon[:-2,word_IDs] += count_per_tag
 			else:
