@@ -5,6 +5,7 @@ TODO:
 compute backward probabilities with matrix multiplications
 compute expected counts with matrix multiplications
 to save memory: try whether using floats maybe suffices
+replace all matrix indexing with 'take'
 """
 
 from HMM2 import *
@@ -104,16 +105,12 @@ class ForwardBackward:
 		#Compute the values for the base case of the recursion
 		backward[len(self.sentence)-1]= self.hmm.transition[:,:,-1].transpose()
 
+		#fill the rest of the matrix
 		for pos in reversed(xrange(len(self.sentence)-1)):
 			next_wordID = self.wordIDs[self.sentence[pos+1]]
 			for tagID1 in xrange(self.N+2):
 				for tagID2 in xrange(self.N+2):
-					start = Decimal('0.0')
-					for tagID3 in xrange(self.N+2):
-						start += self.hmm.emission[tagID3,next_wordID]*backward[pos+1,tagID3,tagID1]*self.hmm.transition[tagID2,tagID1,tagID3]
-					#backward[pos,tagID1,tagID2] = (self.hmm.emission[:,next_wordID]*backward[pos+1,:,tagID1]*self.hmm.transition[tagID2,tagID1,:])
-					backward[pos, tagID1, tagID2] = start
-
+					backward[pos,tagID1, tagID2] = (self.hmm.emission[:,next_wordID]*backward[pos+1, :, tagID1]*self.hmm.transition[tagID2, tagID1, :]).sum()
 		self.backward = backward
 		return
 	
