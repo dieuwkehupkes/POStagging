@@ -88,7 +88,7 @@ class ForwardBackward:
 
 		for pos in xrange(1, len(self.sentence)):
 			wordID = self.wordIDs[self.sentence[pos]]
-			M = (forward[pos-1, :, :]*self.hmm.transition.transpose(2,1,0)).sum(axis=2)
+			M = (numpy.take(forward, [pos-1],axis=0)*self.hmm.transition.transpose(2,1,0)).sum(axis=2)
 			forward[pos] = M*self.hmm.emission[:,wordID,numpy.newaxis]
 
 		self.forward = forward
