@@ -168,18 +168,19 @@ class ForwardBackward:
 		Iterative algorithm to compute all forward
 		probabilities.
 		"""
-		#In principle are there some things that can be excluded or forehand
-		# such as "$$$" "$$$" X, maybe I should hard code skipping these cases
-		
-		#Loop over all combinations of tags and positions
-		for position, tagID1, tagID2 in itertools.product(xrange(len(self.sentence)),xrange(self.N+1), xrange(self.N+1)):
-			#compute forward probability
-			self.forward_probability(position,tagID1,tagID2)
-		#transform to matrix
-		forward_matrix = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = Decimal)
-		for position, tagID1, tagID2 in self.forward:
-			forward_matrix[position, tagID1, tagID2] = self.forward[(position, tagID1, tagID2)]
-		self.forward = forward_matrix
+		forward = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = Decimal)
+		f = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = Decimal)
+
+		#compute the base case of the recursion (position=0)
+		wordID = self.wordIDs[self.sentence[0]]
+		forward[0] = numpy.transpose(self.hmm.emission[:,wordID]*self.hmm.transition[-1])
+
+		for pos in xrange(1, len(self.sentence)):
+			wordID = self.wordIDs[self.sentence[pos]]
+			M = (forward[pos-1, :, :]*self.hmm.transition.transpose(2,1,0)).sum(axis=2)
+			forward[pos] = M*self.hmm.emission[:,wordID,numpy.newaxis]
+
+		self.forward = forward
 		return
 
 	def backward_probability(self, position, tagID1, tagID2):
