@@ -50,7 +50,7 @@ class ForwardBackward:
 		for this sentence.
 		"""
 		raise NotImplementedError
-
+	
 	def compute_expected_counts(self):
 		"""
 		Compute the counts for every tag at every possible position
@@ -70,8 +70,9 @@ class ForwardBackward:
 		word_tag_sums = self.sums / self.position_sums[:,numpy.newaxis]
 		word_indices = [self.wordIDs[word] for word in self.sentence]
 		expected_counts[:,word_indices] = word_tag_sums.transpose()
+
 		return expected_counts
-	
+		
 	def compute_all_forward_probabilities(self):
 		"""
 		Iterative algorithm to compute all forward
@@ -81,16 +82,16 @@ class ForwardBackward:
 
 		#compute the base case of the recursion (position=0)
 		wordID = self.wordIDs[self.sentence[0]]
-		forward[0] = numpy.transpose(self.hmm.emission[:,wordID]*self.hmm.transition[-1])
+		forward[0] = numpy.transpose(self.hmm.emission.take(wordID, axis=1)*self.hmm.transition.take(-1,axis=0))
 
+		#iteratively fill the forward matrix
 		for pos in xrange(1, len(self.sentence)):
 			wordID = self.wordIDs[self.sentence[pos]]
-			M = (numpy.take(forward, [pos-1],axis=0)*self.hmm.transition.transpose(2,1,0)).sum(axis=2)
+			M = (forward.take(pos-1,axis=0)*self.hmm.transition.transpose(2,1,0)).sum(axis=2)
 			forward[pos] = M*self.hmm.emission[:,wordID,numpy.newaxis]
-
 		self.forward = forward
 		return
-
+		
 	def compute_all_backward_probabilities(self):
 		"""
 		Compute all backward probabilities for the sentence
@@ -98,7 +99,7 @@ class ForwardBackward:
 		backward = numpy.zeros(shape=(len(self.sentence), self.N+2, self.N+2), dtype = Decimal)
 
 		#Compute the values for the base case of the recursion
-		backward[len(self.sentence)-1]= self.hmm.transition[:,:,-1].transpose()
+		backward[len(self.sentence)-1]= self.hmm.transition.take(-1, axis=2).transpose()
 
 		#fill the rest of the matrix
 		for pos in reversed(xrange(len(self.sentence)-1)):

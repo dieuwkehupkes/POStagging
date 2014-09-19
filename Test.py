@@ -1,5 +1,6 @@
 """
 Test Module
+Use profiling module to see where the time goes!
 """
 
 #I should write something that tests if the smoothed probabilities are alright
