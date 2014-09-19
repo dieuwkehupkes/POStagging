@@ -2,8 +2,7 @@
 A class to efficiently compute expected counts using the forward-backward algorithm
 
 TODO:
-compute backward probabilities with matrix multiplications
-compute expected counts with matrix multiplications
+implement profiling
 to save memory: try whether using floats maybe suffices
 replace all matrix indexing with 'take'
 """
@@ -11,7 +10,6 @@ replace all matrix indexing with 'take'
 from HMM2 import *
 from HMMgenerator import *
 from decimal import Decimal
-import itertools
 
 class ForwardBackward:
 	"""
@@ -44,38 +42,35 @@ class ForwardBackward:
 		"""
 		lex_dict += expected_counts
 		return lex_dict
+	
+	def update_count_dict(self, expected_counts):
+		"""
+		Update the counts in an inputted
+		count matrix with the expected counts
+		for this sentence.
+		"""
+		raise NotImplementedError
 
-	def compute_expected_counts(self, expected_counts = None):
+	def compute_expected_counts(self):
 		"""
 		Compute the counts for every tag at every possible position
 		"""
-		#initialise an empty expected counts matrix or use inputted one
-		if expected_counts:
-			pass
-		else:
-			expected_counts = numpy.zeros(shape=self.hmm.emission.shape, dtype = Decimal)
-			expected_counts += Decimal('0.0')
+		#I don't know if this can maybe be done better with the word_indices
+		expected_counts = numpy.zeros(shape=self.hmm.emission.shape, dtype = Decimal)
+		expected_counts += Decimal('0.0')
+		
+		#compute all required sums and probabilities
 		self.compute_all_forward_probabilities()
 		self.compute_all_backward_probabilities()
 		self.compute_all_products()
 		self.compute_all_sums()
 		self.compute_all_position_sums()
-		for i in xrange(len(self.sentence)):
-			wordID = self.wordIDs[self.sentence[i]]
-			for tagID in xrange(self.N+2):
-				prob = self.compute_tag_probability(i,tagID)
-				expected_counts[tagID, wordID] += prob
+
+		#compute expected counts
+		word_tag_sums = self.sums / self.position_sums[:,numpy.newaxis]
+		word_indices = [self.wordIDs[word] for word in self.sentence]
+		expected_counts[:,word_indices] = word_tag_sums.transpose()
 		return expected_counts
-	
-	def compute_tag_probability(self, position, tagID):
-		"""
-		Compute the probability that the HMM model asigns tag
-		to word at position.
-		It is assumed that all forward and backward probabilities
-		for the sentence are already computed
-		"""
-		probability = self.sums[position,tagID]/self.position_sums[position]
-		return probability
 	
 	def compute_all_forward_probabilities(self):
 		"""
