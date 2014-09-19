@@ -6,7 +6,7 @@ from decimal import *
 
 #tags = set(['LID', 'VZ', 'WW','ADJ','N','VG','BW','VNW']) 
 tags = set(['LET','LID', 'VZ', 'WW','TSW','ADJ','N','VG','BW','TW','SPEC(e)', 'VNW','VZ+LID','WW+VNW']) 
-precision = 1000
+precision = 100
 
 generator = gen()
 #trans_dict, lex_dict = generator.get_hmm_dicts_from_file('../../Data/StatenvertalingParallel/Test/test.1637.tags.gold')
