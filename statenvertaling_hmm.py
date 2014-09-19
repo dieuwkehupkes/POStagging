@@ -1,13 +1,9 @@
 from HMMgenerator import HMM2_generator as gen
-from HMM2 import HMM2 as hmm
-from decimal import Decimal
 import pickle
 
 tags = set(['LET','LID', 'VZ', 'WW','TSW','ADJ','N','VG','BW','TW','SPEC(e)', 'VNW','VZ+LID','WW+VNW']) 
 
-precision = 100
-
-generator = gen(precision)
+generator = gen()
 words_labeled = generator.labeled_make_word_list('../../Data/StatenvertalingParallel/Test/test.1637.tags.gold')
 words_unlabeled =set('inden beginne schiep godt den hemel , ende de aerde .'.split())
 all_words = words_unlabeled.union(set(words_labeled.keys()))
@@ -19,8 +15,4 @@ tran_dict = generator.transition_dict_add_alpha(0.5, trans_dict)
 lex_dict = generator.lexicon_dict_add_unlabeled(words_unlabeled, lex_dict)
 hmm = generator.make_hmm(trans_dict, lex_dict)
 
-pickle.dump(hmm, open('statenvertaling.hmm.pickle','w'))
-
-
-
-
+pickle.dump(hmm, open('statenvertaling.hmm.pickle', 'w'))

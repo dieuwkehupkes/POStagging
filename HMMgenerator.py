@@ -3,15 +3,14 @@ Functions to generate HMMs.
 """
 from HMM2 import *
 import copy
-from decimal import *
 import string
 
 class HMM2_generator:
 	"""
 	Initialise an HMM generator.
 	"""
-	def __init__(self, precision = 50):
-	 	getcontext().prec = precision
+	def __init__(self):
+		pass
 
 	def init_transition_matrix(self, tags):
 		"""
@@ -22,8 +21,7 @@ class HMM2_generator:
 		"""
 		all_tags = set(tags).union(set(['$$$','###']))
 		N = len(all_tags)
-		transition_matrix = numpy.zeros(shape=(N,N,N), dtype=Decimal)
-		transition_matrix += Decimal('0.0') 
+		transition_matrix = numpy.zeros(shape=(N,N,N), dtype=numpy.float64)
 		return transition_matrix
 	
 	def init_lexicon_matrix(self, words, nr_of_tags):
@@ -31,8 +29,7 @@ class HMM2_generator:
 		Initialise an empty lexicon matrix.
 		"""
 		nr_of_words = len(words)
-		lexicon_matrix = numpy.zeros(shape=(nr_of_tags+2, nr_of_words), dtype=Decimal)
-		lexicon_matrix += Decimal('0.0')
+		lexicon_matrix = numpy.zeros(shape=(nr_of_tags+2, nr_of_words), dtype=numpy.float64)
 		return lexicon_matrix
 	
 	def get_words_from_file(self, input_file):
@@ -99,18 +96,18 @@ class HMM2_generator:
 			try:
 				word, tag = line.split()
 				wordID, tagID = wordIDs[word], tagIDs[tag]
-				trigrams[prev_tagID,cur_tagID, tagID] += Decimal('1.0')
-				emission[tagID, wordID] += Decimal('1.0')
+				trigrams[prev_tagID,cur_tagID, tagID] += 1.0
+				emission[tagID, wordID] += 1.0
 				prev_tagID = cur_tagID
 				cur_tagID = tagID
 			except ValueError:
 				#end of sentence
-				trigrams[prev_tagID,cur_tagID, ID_end] += Decimal('1.0')
+				trigrams[prev_tagID,cur_tagID, ID_end] += 1.0
 				prev_tagID, cur_tagID = ID_end, ID_start
 		f.close()
 		#add last trigram if file did not end with white line
 		if prev_tagID != ID_end: 
-			trigrams[prev_tagID, cur_tagID, ID_end] += Decimal('1.0')
+			trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
 		return trigrams, emission
 	
 	def make_hmm(self, trigrams, emission):
@@ -143,13 +140,13 @@ class HMM2_generator:
 				punctuation_IDs.add(self.wordIDs[word])
 		word_IDs = tuple(word_IDs)
 		if 'LET' in self.tagIDs:
-			count_per_tag = Decimal('1')/Decimal(lexicon.shape[0]-3)
+			count_per_tag = 1.0/float(lexicon.shape[0]-3)
 			punctuation_ID = self.tagIDs['LET'] 
 			lexicon[:punctuation_ID,word_IDs] += count_per_tag
 			lexicon[:punctuation_ID+1:-2, word_IDs] += count_per_tag
-			lexicon[punctuation_ID, tuple(punctuation_IDs)] += Decimal('1.0')
+			lexicon[punctuation_ID, tuple(punctuation_IDs)] += 1.0
 		else:
-			count_per_tag = Decimal('1')/Decimal(lexicon.shape[0]-2)
+			count_per_tag = 1.0/float(lexicon.shape[0]-2)
 			if len(punctuation_IDs) == 0:
 				lexicon[:-2,word_IDs] += count_per_tag
 			else:
@@ -192,15 +189,15 @@ class HMM2_generator:
 		Add alpha smoothing for the trigram count dictionary
 		"""
 		#Add alpha to all matrix entries
-		trigram_count_matrix += Decimal(str(alpha))
+		trigram_count_matrix += alpha
 		#reset matrix entries that correspond with trigrams
 		#containing TAG $$$, where TAG != ###
-		trigram_count_matrix[:,:-1,-2] = Decimal('0')	# X !### $$$
-		trigram_count_matrix[:-1,-2,:] = Decimal('0')	# !### $$$ X
+		trigram_count_matrix[:,:-1,-2] = 0.0	# X !### $$$
+		trigram_count_matrix[:-1,-2,:] = 0.0	# !### $$$ X
 		#reset matrix entries that correspond with trigrams
 		#containing ### TAG where TAG != $$$
-		trigram_count_matrix[:,-1,:-2] = trigram_count_matrix[:,-1,-1] = Decimal('0')
-		trigram_count_matrix[-1,:-2,:] = trigram_count_matrix[-1,-1,:] = Decimal('0')
+		trigram_count_matrix[:,-1,:-2] = trigram_count_matrix[:,-1,-1] = 0.0
+		trigram_count_matrix[-1,:-2,:] = trigram_count_matrix[-1,-1,:] = 0.0
 		return trigram_count_matrix
 	
 	def get_emission_probs(self, lexicon):
@@ -220,7 +217,7 @@ class HMM2_generator:
 		"""
 		#compute the sums for every row
 		tag_sums = trigram_count_matrix.sum(axis=2)
-		tag_sums[tag_sums == 0.0] = Decimal('1.0')
+		tag_sums[tag_sums == 0.0] = 1.0
 		#divide the transition matrix by the broadcasted tag sums
 		trigram_count_matrix /= tag_sums[:,:,numpy.newaxis]
 		return trigram_count_matrix

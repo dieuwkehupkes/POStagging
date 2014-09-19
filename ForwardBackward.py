@@ -9,7 +9,6 @@ replace all matrix indexing with 'take'
 
 from HMM2 import *
 from HMMgenerator import *
-from decimal import Decimal
 
 class ForwardBackward:
 	"""
@@ -17,7 +16,7 @@ class ForwardBackward:
 	the sentence. Initialise with an HMM model,
 	a set of possible tags and a sentence.
 	"""
-	def __init__(self, sentence, hmm2, precision=200):
+	def __init__(self, sentence, hmm2):
 		"""
 		:param sentence: A tokenised sentence, either a string or a list of words
 		:param hmm2: A second order hmm model
@@ -33,7 +32,6 @@ class ForwardBackward:
 		self.ID_start = self.tagIDs['$$$']
 		self.ID_end = self.tagIDs['###']
 		self.backward = {}
-		getcontext.prec = precision
 	
 	def update_lexical_dict(self, lex_dict, expected_counts):
 		"""
@@ -56,8 +54,7 @@ class ForwardBackward:
 		Compute the counts for every tag at every possible position
 		"""
 		#I don't know if this can maybe be done better with the word_indices
-		expected_counts = numpy.zeros(shape=self.hmm.emission.shape, dtype = Decimal)
-		expected_counts += Decimal('0.0')
+		expected_counts = numpy.zeros(shape=self.hmm.emission.shape, dtype = numpy.float64)
 		
 		#compute all required sums and probabilities
 		self.compute_all_forward_probabilities()
@@ -72,13 +69,13 @@ class ForwardBackward:
 		expected_counts[:,word_indices] = word_tag_sums.transpose()
 
 		return expected_counts
-		
+	@profile		
 	def compute_all_forward_probabilities(self):
 		"""
 		Iterative algorithm to compute all forward
 		probabilities.
 		"""
-		forward = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = Decimal)
+		forward = numpy.zeros(shape=(len(self.sentence),self.N+2,self.N+2), dtype = numpy.float64)
 
 		#compute the base case of the recursion (position=0)
 		wordID = self.wordIDs[self.sentence[0]]
@@ -91,12 +88,13 @@ class ForwardBackward:
 			forward[pos] = M*self.hmm.emission[:,wordID,numpy.newaxis]
 		self.forward = forward
 		return
-		
+	
+	@profile		
 	def compute_all_backward_probabilities(self):
 		"""
 		Compute all backward probabilities for the sentence
 		"""
-		backward = numpy.zeros(shape=(len(self.sentence), self.N+2, self.N+2), dtype = Decimal)
+		backward = numpy.zeros(shape=(len(self.sentence), self.N+2, self.N+2), dtype = numpy.float64)
 
 		#Compute the values for the base case of the recursion
 		backward[len(self.sentence)-1]= self.hmm.transition.take(-1, axis=2).transpose()

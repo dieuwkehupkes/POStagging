@@ -5,7 +5,6 @@ blablabla
 
 import sys
 import copy
-from decimal import *
 import numpy
 
 class HMM2:
@@ -24,7 +23,7 @@ class HMM2:
 		:param tagged_sequence: a list of (word, tag) tuples
 		"""
 		tags = ['###','$$$'] + tags + ['###']
-		prob = Decimal('1.0')
+		prob = 1.0
 		#compute emission probabilities
 		for i in xrange(len(sequence)):
 			wordID = self.wordIDs[sequence[i]]
@@ -77,12 +76,11 @@ class HMM2:
 			for pos in xrange(len(sequence)):
 				tag = sequence[pos]
 				tagID = self.tagIDs[tag]
-				probs[(pos,tagID)] = probs.get((pos,tagID),Decimal('0')) + prob
+				probs[(pos,tagID)] = probs.get((pos,tagID),0.0) + prob
 #			if sequence[1] == 'N':
 				#print "new probability of word", s[1], "being N:", probs[(1,self.tagIDs['N'])]
 		#compute totals for each position
-		totals, e_count = {}, numpy.zeros(shape=self.emission.shape,dtype=Decimal)
-		e_count += Decimal('0.0')
+		totals, e_count = {}, numpy.zeros(shape=self.emission.shape,dtype=numpy.float64)
 		for position in xrange(len(s)):
 			wordID = self.wordIDs[s[position]]
 			totals[position] = sum([probs[x] for x in probs.keys() if x[0] == position])

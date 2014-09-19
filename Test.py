@@ -23,11 +23,11 @@ class Test:
 		hmm = self.toy_hmm_smoothed()
 		tags = set(['LID', 'VZ', 'N', 'WW'])
 		s = "de man heeft een huis"
-		training = ForwardBackward(s,hmm,tags)
+		training = ForwardBackward(s, hmm)
 
 		expected_counts_fb = training.compute_expected_counts()
 		expected_counts_bf = hmm.expected_counts_brute_forse(s, tags)
-		assert numpy.all(abs(expected_counts_bf- expected_counts_fb) < 1e-50), expected_counts_bf == expected_counts_fb
+		assert numpy.all(abs(expected_counts_bf- expected_counts_fb) < 1e-15), expected_counts_bf == expected_counts_fb
 		return
 	
 	def test_generation(self):
@@ -37,16 +37,15 @@ class Test:
 		are correct.
 		"""
 		hmm = self.toy_hmm()
-		transition_matrix_man = numpy.zeros(shape=hmm.transition.shape, dtype=Decimal)
-		transition_matrix_man += Decimal('0.0')
+		transition_matrix_man = numpy.zeros(shape=hmm.transition.shape, dtype=numpy.float64)
 		tagIDs = hmm.tagIDs
 		for t1,t2,t3 in [('$$$','LID','N'),('###','$$$','LID'),('WW','VZ','N'),('WW','LID','N'), ('N','VZ','LID'),('VZ','LID','N'),('VZ','N','###')]:
-			transition_matrix_man[tagIDs[t1],tagIDs[t2],tagIDs[t3]] = Decimal('1.0')
-		transition_matrix_man[tagIDs['LID'],tagIDs['N'],tagIDs['WW']] = Decimal('0.5')
-		transition_matrix_man[tagIDs['LID'],tagIDs['N'],tagIDs['###']] = Decimal('2.0')/Decimal('6.0')
-		transition_matrix_man[tagIDs['LID'],tagIDs['N'],tagIDs['VZ']] = Decimal('1.0')/Decimal('6.0')
-		transition_matrix_man[tagIDs['N'],tagIDs['WW'],tagIDs['LID']] = Decimal('2.0')/Decimal('3.0')
-		transition_matrix_man[tagIDs['N'],tagIDs['WW'],tagIDs['VZ']] = Decimal('1.0')/Decimal('3.0')
+			transition_matrix_man[tagIDs[t1],tagIDs[t2],tagIDs[t3]] = 1.0
+		transition_matrix_man[tagIDs['LID'],tagIDs['N'],tagIDs['WW']] = 0.5
+		transition_matrix_man[tagIDs['LID'],tagIDs['N'],tagIDs['###']] = 2.0/6.0
+		transition_matrix_man[tagIDs['LID'],tagIDs['N'],tagIDs['VZ']] = 1.0/6.0
+		transition_matrix_man[tagIDs['N'],tagIDs['WW'],tagIDs['LID']] = 2.0/3.0
+		transition_matrix_man[tagIDs['N'],tagIDs['WW'],tagIDs['VZ']] = 1.0/3.0
 		assert numpy.array_equal(transition_matrix_man, hmm.transition), transition_matrix_man == hmm.transition
 		return
 	
@@ -58,9 +57,9 @@ class Test:
 		hmm = self.toy_hmm()
 		s = "de man heeft een huis".split()
 		tags = "LID N WW LID N".split()
-		man_prob = Decimal('16.0')/Decimal('15876.0')
+		man_prob = 16.0/15876.0
 		prob = hmm.compute_probability(s,tags)
-		assert man_prob == prob
+		assert abs(man_prob - prob) < 1e-10
 		return
 	
 	def toy_hmm(self):
@@ -71,7 +70,7 @@ class Test:
 		f = open('test1','w')
 		f.write("de\tLID\nman\tN\nloopt\tWW\nnaar\tVZ\nhuis\tN\n\nde\tLID\nman\tN\nheeft\tWW\neen\tLID\nhond\tN\nmet\tVZ\neen\tLID\nstaart\tN\n\nhet\tLID\nhuis\tN\nheeft\tWW\neen\tLID\ndeur\tN")
 		f.close()
-		generator = HMM2_generator(precision=500)
+		generator = HMM2_generator()
 		words_labeled = generator.labeled_make_word_list('test1')
 		words_unlabeled = {'de': 1, 'man': 1, 'loopt': 1, 'naar': 1, 'huis':1}
 		all_words = set(words_labeled.keys()).union(set(words_unlabeled.keys()))
@@ -88,7 +87,7 @@ class Test:
 		f = open('test1','w')
 		f.write("de\tLID\nman\tN\nloopt\tWW\nnaar\tVZ\nhuis\tN\n\nde\tLID\nman\tN\nheeft\tWW\neen\tLID\nhond\tN\nmet\tVZ\neen\tLID\nstaart\tN\n\nhet\tLID\nhuis\tN\nheeft\tWW\neen\tLID\ndeur\tN")
 		f.close()
-		generator = HMM2_generator(precision=100)
+		generator = HMM2_generator()
 		words_labeled = generator.labeled_make_word_list('test1')
 		words_unlabeled = {'de': 1, 'man': 1, 'heeft': 1, 'een': 1, 'huis':1}
 		all_words = set(words_labeled.keys()).union(set(words_unlabeled.keys()))
