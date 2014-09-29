@@ -1,9 +1,5 @@
 """
 A class to efficiently compute expected counts using the forward-backward algorithm
-
-TODO:
-replace all matrix indexing with 'take'
-generate maybe wordID matrix on forehand to avoid recomputing it
 """
 
 import numpy

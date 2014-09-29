@@ -88,12 +88,13 @@ class Test:
         f.close()
         generator = HMM2_generator()
         words_labeled = generator.labeled_make_word_list('test1')
-        words_unlabeled = {'de': 1, 'man': 1, 'heeft': 1, 'een': 1, 'huis': 1}
+        words_unlabeled = {'de': 2, 'man': 1, 'heeft': 1, 'een': 1, 'huis': 1}
         all_words = set(words_labeled.keys()).union(set(words_unlabeled.keys()))
         tags = set(['LID', 'VZ', 'N', 'WW'])
         trans_dict, lex_dict = generator.get_hmm_dicts_from_file('test1', tags, all_words)
         trans_dict = generator.transition_dict_add_alpha(0.5, trans_dict)
-        lex_dict = generator.lexicon_dict_add_unlabeled(words_unlabeled, lex_dict)
+        lex_dict = generator.weighted_lexicon_smoothing(lex_dict, words_unlabeled, ratio=0.5)
+        # lex_dict = generator.lexicon_dict_add_unlabeled(words_unlabeled, lex_dict)
         hmm = generator.make_hmm(trans_dict, lex_dict)
         os.remove('test1')
         return hmm

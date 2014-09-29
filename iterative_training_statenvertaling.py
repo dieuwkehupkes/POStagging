@@ -1,3 +1,7 @@
+"""
+Implement parallel processing
+"""
+
 from HMMgenerator import HMM2_generator as gen
 from ForwardBackward import ForwardBackward as FB
 import copy
@@ -16,6 +20,7 @@ print "created dictionaries from file"
 trans_dict = generator.transition_dict_add_alpha(1.0, trans_dict)
 print "smoothed transition dictionary"
 lex_dict_smoothed = generator.lexicon_dict_add_unlabeled(words_unlabeled, lex_dict)
+lex_dict = generator.weighted_lexicon_smoothing(lex_dict, words_unlabeled, ratio=0.5)
 print "smoothed lexical dictionary"
 hmm = generator.make_hmm(trans_dict, lex_dict_smoothed)
 
