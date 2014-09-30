@@ -1,5 +1,7 @@
 """
 A class to efficiently compute expected counts using the forward-backward algorithm
+
+TODO: Implement scaling labeled/unlabeled datasets
 """
 
 import numpy

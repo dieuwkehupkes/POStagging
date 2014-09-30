@@ -6,6 +6,7 @@ Add scaled smoothing lexicon dict (based on how often a word occured)
 from HMM2 import HMM2
 import string
 import numpy
+import copy
 
 
 class HMM2_generator:
@@ -138,7 +139,7 @@ class HMM2_generator:
         if 'LET' in self.tagIDs:
             nr_of_tags -= 1
             punctID = self.tagIDs['LET']
-        tag_sums = lexicon_counts.sum(axis=0)
+        word_sums = lexicon_counts.sum(axis=0)
 
         for word in unlabeled_dict:
             wordID = self.wordIDs[word]
@@ -146,11 +147,49 @@ class HMM2_generator:
                 lexicon_counts[punctID, wordID] += 1
                 continue
 
-            extra_freq = tag_sums[wordID]/unlabeled_dict[word]*ratio
+            word_sum_cur = word_sums[wordID]
+            if word_sum_cur == 0.0:
+                word_sum_cur = 1.0
+
+            extra_freq = unlabeled_dict[word]/word_sum_cur*ratio
             lexicon_counts[:-2, wordID] += extra_freq
             if punctID:
                 lexicon_counts[punctID, wordID] -= extra_freq
         return lexicon_counts
+
+    def lexicon_dict_add_unlabeled(self, word_dict, lexicon):
+        """
+        Add counts to all words in an unlabeled file. It is assumed all
+        words are assigned IDs yet and exist in the emission matrix.
+        Currently the added counts are equally divided over all input tags,
+        and also regardless of how often the word occurred in the unlabeled file.
+        Later I should implement a more sophisticated initial estimation,
+        and do some kind of scaling to prevent the unlabeled words from becoming
+        too influential (or not influential enough).
+        """
+        # create set with tagIDs
+        new_lexicon = copy.copy(lexicon)
+        word_IDs, punctuation_IDs = set([]), set([])
+        for word in word_dict:
+            if word not in string.punctuation:
+                word_IDs.add(self.wordIDs[word])
+            else:
+                punctuation_IDs.add(self.wordIDs[word])
+        word_IDs = tuple(word_IDs)
+        if 'LET' in self.tagIDs:
+            count_per_tag = 1.0/float(lexicon.shape[0]-3)
+            punctuation_ID = self.tagIDs['LET']
+            new_lexicon[:punctuation_ID, word_IDs] += count_per_tag
+            new_lexicon[:punctuation_ID+1:-2, word_IDs] += count_per_tag
+            new_lexicon[punctuation_ID, tuple(punctuation_IDs)] += 1.0
+        else:
+            count_per_tag = 1.0/float(lexicon.shape[0]-2)
+            if len(punctuation_IDs) == 0:
+                new_lexicon[:-2, word_IDs] += count_per_tag
+            else:
+                print "No punctuation tag is provided"
+                raise KeyError
+        return new_lexicon
 
     def unlabeled_make_word_list(self, unlabeled_file):
         """
