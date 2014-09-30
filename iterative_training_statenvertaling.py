@@ -7,9 +7,12 @@ from ForwardBackward import ForwardBackward as FB
 import copy
 import numpy
 
+# variables and files
 tags = set(['LET', 'LID', 'VZ', 'WW', 'TSW', 'ADJ', 'N', 'VG', 'BW', 'TW', 'SPEC(e)', 'VNW', 'VZ+LID', 'WW+VNW'])
 labeled = '../../Data/StatenvertalingParallel/Test/test.1637.tags.gold'
 unlabeled = '../../Data/StatenvertalingParallel/temp'
+lexical_smoothing_ratio = 0.5
+multiply_labeled = 4
 
 generator = gen()
 words_labeled = generator.labeled_make_word_list(labeled)
@@ -19,12 +22,11 @@ trans_dict, lex_dict = generator.get_hmm_dicts_from_file(labeled, tags, all_word
 print "created dictionaries from file"
 trans_dict = generator.transition_dict_add_alpha(1.0, trans_dict)
 print "smoothed transition dictionary"
-lex_dict_smoothed = generator.lexicon_dict_add_unlabeled(words_unlabeled, lex_dict)
-lex_dict = generator.weighted_lexicon_smoothing(lex_dict, words_unlabeled, ratio=0.5)
+lex_dict_smoothed = generator.weighted_lexicon_smoothing(lex_dict, words_unlabeled, ratio=lexical_smoothing_ratio)
 print "smoothed lexical dictionary"
 hmm = generator.make_hmm(trans_dict, lex_dict_smoothed)
 
-lex = copy.deepcopy(lex_dict_smoothed)
+lex = multiply_labeled * copy.deepcopy(lex_dict_smoothed)
 
 for i in xrange(20):
     print "start iteration %i" % i
@@ -43,8 +45,10 @@ for i in xrange(20):
                 tagID = tagIDs[i]
                 print "P(%s, %s): %f" % (words[i], tags[i], expected_counts[tagID, wordID])
             print '\n\n'
-            raw_input()
-        sum_expected_counts = training.update_lexical_dict(expected_counts, sum_expected_counts)
+            i = raw_input()
+            if i == 'q' or i == 'Q':
+                exit()
+            sum_expected_counts = training.update_lexical_dict(expected_counts, sum_expected_counts)
     lex = training.update_lexical_dict(sum_expected_counts, lex_dict)
     f.close()
     hmm = generator.make_hmm(trans_dict, lex)
