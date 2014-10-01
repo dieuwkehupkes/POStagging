@@ -18,8 +18,6 @@ class ForwardBackward:
         :param sentence: A tokenised sentence, either a string or a list of words
         :param hmm2: A second order hmm model
         :type hmm2: HMM2
-        :param possible_tags: the tags possible in the model
-        :type possible_tags: set
         """
         self.sentence = sentence.split()
         self.hmm = hmm2
