@@ -16,24 +16,24 @@ class HMM2_generator:
     def __init__(self):
         pass
 
-    def init_transition_matrix(self, tags):
+    def init_transition_matrix(self, tagIDs):
         """
         Transitions are stored in a 3-dimensional matrix.
         Initialising an empty transition matrix thus
         equals generating an empty matrix of size N*N*N,
         where N is the number of tags.
         """
-        all_tags = set(tags).union(set(['$$$', '###']))
-        N = len(all_tags)
+        N = len(tagIDs)
         transition_matrix = numpy.zeros(shape=(N, N, N), dtype=numpy.float64)
         return transition_matrix
 
-    def init_lexicon_matrix(self, words, nr_of_tags):
+    def init_lexicon_matrix(self, wordIDs, tagIDs):
         """
         Initialise an empty lexicon matrix.
         """
-        nr_of_words = len(words)
-        lexicon_matrix = numpy.zeros(shape=(nr_of_tags+2, nr_of_words), dtype=numpy.float64)
+        nr_of_words = len(wordIDs)
+        nr_of_tags = len(tagIDs)
+        lexicon_matrix = numpy.zeros(shape=(nr_of_tags, nr_of_words), dtype=numpy.float64)
         return lexicon_matrix
 
     def get_words_from_file(self, input_file):
@@ -90,10 +90,10 @@ class HMM2_generator:
         trigrams.
         """
         f = open(input_file, 'r')
-        trigrams = self.init_transition_matrix(tags)
-        emission = self.init_lexicon_matrix(words, len(tags))
         wordIDs = self.generate_lexicon_IDs(words)
         tagIDs = self.generate_tag_IDs(tags)
+        trigrams = self.init_transition_matrix(tagIDs)
+        emission = self.init_lexicon_matrix(wordIDs, tagIDs)
         ID_end, ID_start = tagIDs['###'], tagIDs['$$$']
         prev_tagID, cur_tagID = ID_end, ID_start         # beginning of sentence
         for line in f:
@@ -115,13 +115,60 @@ class HMM2_generator:
             trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
         return trigrams, emission
 
-    def make_hmm(self, trigrams, emission):
+    def get_lexicon_from_file(self, input_file, tagIDs, wordIDs):
+        """
+        Generate an emission matrix from a file with lines
+        containing a word and a tag separated by a tab.
+        Sentences are delimited by new lines.
+        """
+        f = open(input_file, 'r')
+        emission = self.init_lexicon_matrix(wordIDs, tagIDs)
+        for line in f:
+            try:
+                word, tag = line.split()
+                wordID, tagID = wordIDs[word], tagIDs[tag]
+                emission[tagID, wordID] += 1.0
+            except ValueError:
+                # end of sentence
+                pass
+        f.close()
+        return emission
+
+    def get_trigrams_from_file(self, input_file, tagIDs):
+        """
+        Generate an hmm transition matrix from an input file
+        containing lines with a word and a tag separated by a tab.
+        """
+        f = open(input_file, 'r')
+        trigrams = self.init_transition_matrix(tagIDs)
+        ID_end, ID_start = tagIDs['###'], tagIDs['$$$']
+        prev_tagID, cur_tagID = ID_end, ID_start        # beginning of sentence
+        for line in f:
+            try:
+                word, tag = line.split()
+                tagID = tagIDs[tag]
+                trigrams[prev_tagID, cur_tagID, tagID] += 1.0
+                prev_tagID = cur_tagID
+                cur_tagID = tagID
+            except ValueError:
+                # end of sentence
+                trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
+                prev_tagID, cur_tagID = ID_end, ID_start
+        f.close
+
+        # add last trigram if file did not end with white line
+        if prev_tagID != ID_end:
+            trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
+
+        return trigrams
+
+    def make_hmm(self, trigrams, emission, tagIDs, wordIDs):
         """
         Return a HMM object
         """
         transition_dict = self.get_transition_probs(trigrams)
         emission_dict = self.get_emission_probs(emission)
-        hmm = HMM2(transition_dict, emission_dict, self.tagIDs, self.wordIDs)
+        hmm = HMM2(transition_dict, emission_dict, tagIDs, wordIDs)
         return hmm
 
     def weighted_lexicon_smoothing(self, lexicon_counts, unlabeled_dict, ratio=1.0):
