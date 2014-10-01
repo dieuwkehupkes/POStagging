@@ -1,9 +1,9 @@
 """
-The class implements an HMM model, several methods of smoothing are available
-blablabla
+The class implements an HMM model, I should implement some smoothing models.
 """
 
 import numpy
+from Viterbi import Viterbi
 
 
 class HMM2:
@@ -14,7 +14,19 @@ class HMM2:
         self.emission = emission_probabilities
         self.transition = transition_probabilities
         self.tagIDs = tagIDs
+        self.tagIDs_reversed = self.get_reversed_tagIDs()
         self.wordIDs = wordIDs
+
+    def get_reversed_tagIDs(self):
+        """
+        Create a matrix in which for each number the
+        corresponding tag can be found.
+        """
+        reversed_tagIDs = numpy.empty(len(self.tagIDs), dtype='|S8')
+        for tag in self.tagIDs:
+            ID = self.tagIDs[tag]
+            reversed_tagIDs[ID] = tag
+        return reversed_tagIDs
 
     def compute_probability(self, sequence, tags):
         """
@@ -29,19 +41,29 @@ class HMM2:
             wordID = self.wordIDs[sequence[i]]
             tagID = self.tagIDs[tags[i+2]]
             prob = prob * self.emission[tagID, wordID]
-        
+
         # compute transition probabilities
         for i in xrange(2, len(tags)):
             tag1, tag2, tag3 = self.tagIDs[tags[i - 2]], self.tagIDs[tags[i-1]], self.tagIDs[tags[i]]
-            try:
-                prob = prob * self.transition[tag1][tag2][tag3]
-            except IndexError:
-                # Except will possibly be used when the tagger
-                # is extended to work for new files
-                print "No transition probability available"
-                prob = prob * self.get_smoothed_transition(tag1, tag2, tag3)
-                return 0
+            prob = prob * self.transition[tag1, tag2, tag3]
+
         return prob
+
+    def compute_best_sequence(self, sequence):
+        """
+        Compute the optimal tag-sequence for the
+        given sentence.
+        """
+        viterbi = Viterbi(self)
+        best_parse = viterbi.compute_best_parse(sequence)
+        return best_parse
+
+    def compute_expected_counts(self, sequence):
+        """
+        I think I should maybe use the function here
+        instead of in the ForwardBackward algorithm
+        """
+        raise NotImplementedError
 
     def get_smoothed_emission(self, tag, word):
         """
