@@ -4,6 +4,7 @@ The class implements an HMM model, I should implement some smoothing models.
 
 import numpy
 from Viterbi import Viterbi
+from ForwardBackward import ForwardBackward
 
 
 class HMM2:
@@ -49,21 +50,22 @@ class HMM2:
 
         return prob
 
-    def compute_best_sequence(self, sequence):
+    def compute_best_sequence(self, sentence):
         """
         Compute the optimal tag-sequence for the
         given sentence.
         """
         viterbi = Viterbi(self)
-        best_parse = viterbi.compute_best_parse(sequence)
+        best_parse = viterbi.compute_best_parse(sentence)
         return best_parse
 
-    def compute_expected_counts(self, sequence):
+    def compute_expected_counts(self, sentence):
         """
         I think I should maybe use the function here
         instead of in the ForwardBackward algorithm
         """
-        raise NotImplementedError
+        FB = ForwardBackward(sentence, self)
+        return FB.compute_expected_counts()
 
     def get_smoothed_emission(self, tag, word):
         """

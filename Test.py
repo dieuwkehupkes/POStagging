@@ -5,7 +5,6 @@ I should write something that tests if the smoothed probabilities are alright
 
 
 import os
-from ForwardBackward import ForwardBackward
 from HMMgenerator import HMM2_generator
 import numpy
 
@@ -23,9 +22,7 @@ class Test:
         hmm = self.toy_hmm_smoothed()
         tags = set(['LID', 'VZ', 'N', 'WW'])
         s = "de man heeft een huis"
-        training = ForwardBackward(s, hmm)
-
-        expected_counts_fb = training.compute_expected_counts()
+        expected_counts_fb = hmm.compute_expected_counts(s)
         expected_counts_bf = hmm.expected_counts_brute_forse(s, tags)
         assert numpy.all(abs(expected_counts_bf - expected_counts_fb) < 1e-15), expected_counts_bf == expected_counts_fb
         return
