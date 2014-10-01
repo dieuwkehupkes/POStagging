@@ -8,6 +8,7 @@ MOVE COMPUTE EXPECTED COUNTS FUNCTION TO HMM2 CLASS
 from HMM2 import HMM2
 from ForwardBackward import ForwardBackward
 from HMMgenerator import HMM2_generator as gen
+from Viterbi import Viterbi
 import numpy
 import pickle
 
@@ -65,6 +66,20 @@ class Train:
             hmm = self.iteration(hmm, lexicon_basis)
         return hmm
 
+    def train_and_test(self, start, iterations, scaling, evaluation_set):
+        hmm = start
+        evaluation = self.load_evaluation(evaluation_set)
+        print 'loaded evaluation..'
+        lexicon_basis = scaling * self.lex_basis
+        for i in xrange(iterations):
+            accuracy = self.compute_accuracy(hmm, evaluation)
+            print "accuracy before iteration %i: %f" % (i, accuracy)
+            print 'start iteration %i' % i
+            hmm = self.iteration(hmm, lexicon_basis)
+
+        print "accuracy after training:", accuracy
+        return hmm
+
     def iteration(self, hmm, labeled_counts):
         """
         Do one iteration of training.
@@ -79,3 +94,59 @@ class Train:
         f.close()
         new_hmm = HMM2(hmm.transition, new_lexicon, hmm.tagIDs, hmm.wordIDs)
         return new_hmm
+
+    def load_evaluation(self, evaluation):
+        """
+        Load an evaluation file in memory by creating a
+        dictionary with sentences as keys and their correct
+        tag sequence as values.
+        The evaluation file should contain lines with a
+        word and a tag separated by a tab. Sentences are
+        delimited by newlines.
+        """
+        f = open(evaluation, 'r')
+        evaluation = {}
+        sentence = ''
+        tag_sequence = []
+        for line in f:
+            try:
+                word, tag = line.split()
+                sentence = sentence + ' ' + word
+                tag_sequence.append(tag)
+            except ValueError:
+                if sentence != '':
+                    evaluation[sentence] = tag_sequence
+                    sentence = ''
+                    tag_sequence = []
+
+        f.close()
+
+        if sentence != '':
+            evaluation[sentence] = tag_sequence
+        return evaluation
+
+    def compute_accuracy(self, hmm, evaluation):
+        """
+        Compute the accuracy of hmm tags on an
+        validation dictionary.
+        """
+        V = Viterbi(hmm)
+        accuracy = 0.0
+        for sentence in evaluation:
+            hmm_tags = V.compute_best_parse(sentence)[1]
+            validation_tags = evaluation[sentence]
+            accuracy += self.accuracy(hmm_tags, validation_tags)
+        total_accuracy = accuracy/len(evaluation)
+        return total_accuracy
+
+    def accuracy(self, hmm_tags, validation_tags):
+        """
+        Compute the accuracy of the hmm-assigned tags.
+        """
+        accuracy = 0.0
+        print hmm_tags, validation_tags
+        for i in xrange(len(hmm_tags)):
+            if hmm_tags[i] == validation_tags[i]:
+                accuracy += 1.0
+        accuracy_sentence = accuracy/len(hmm_tags)
+        return accuracy_sentence
