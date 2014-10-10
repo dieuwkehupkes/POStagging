@@ -36,21 +36,29 @@ class Viterbi:
         # work further through the sentence
         for position in xrange(1, length):
             wordID = self.hmm.wordIDs[words[position]]
-            for tagID1 in xrange(N):
-                for tagID2 in xrange(N):
-                    probs = dynamic_table[position-1, :, tagID2] * self.hmm.transition[:, tagID2, tagID1]
-                    max_prob = probs.max()
-                    backpointer = (position-1, probs.argmax(), tagID2)
+            probs = numpy.transpose(dynamic_table[position-1, :, :] * self.hmm.transition[:, :, :].transpose(2, 0, 1), (0, 2, 1))
+            probs_max = probs.max(axis=2)
+            argmax1 = probs.argmax(axis=2)
+            dynamic_table[position, :, :] = (self.hmm.emission[:, wordID, numpy.newaxis] * probs_max).transpose()
 
-                    dynamic_table[position, tagID2, tagID1] = self.hmm.emission[tagID1, wordID] * max_prob
+            # set backpointers (could I maybe also do this in the matrix)
+            for tagID1 in xrange(N):
+                argmax_prob = argmax1[tagID1]
+
+                # create the backpointers, I would like to add this to an extra dimension of the current matrix so that
+                # I can do it in one go
+                for tagID2 in xrange(N):
+                    argmax = argmax_prob[tagID2]
+                    backpointer = (position-1, argmax, tagID2)
                     backpointers[position, tagID2, tagID1] = backpointer
+
         # last tag
         for tagID1 in xrange(N):
             for tagID2 in xrange(N):
                 dynamic_table[-1, tagID1, tagID2] *= self.hmm.transition[tagID1, tagID2, -1]
 
         best_prob = dynamic_table[-1, :, :].max()
-        i, j = numpy.unravel_index(dynamic_table[-1, :, :].argmax(), dynamic_table[1, :, :].shape)
+        i, j = numpy.unravel_index(dynamic_table[-1, :, :].argmax(), dynamic_table[-1, :, :].shape)
         # maybe put this in another function
         best_sequence.append(self.hmm.tagIDs_reversed[j])
         backpointer = (-1, i, j)
@@ -61,3 +69,6 @@ class Viterbi:
         best_sequence.reverse()
 
         return best_prob, best_sequence
+
+    def traverse_backpointers():
+        pass
