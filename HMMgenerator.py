@@ -80,6 +80,21 @@ class HMM2_generator:
             i += 1
         return self.wordIDs
 
+    def find_tags(self, input_file):
+        """
+        Find all the tags occuring in an input file.
+        """
+        f = open(input_file, 'r')
+        tags = set([])
+        for line in f:
+            try:
+                word, tag = line.split()
+                tags.add(tag)
+            except ValueError:
+                continue
+        f.close()
+        return tags
+
     def get_hmm_dicts_from_file(self, input_file, tags, words):
         """
         Generate hmm matrices from a file containing lines
@@ -107,12 +122,14 @@ class HMM2_generator:
             except ValueError:
                 # end of sentence
                 trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
+                trigrams[cur_tagID, ID_end, ID_start] += 1.0
                 prev_tagID, cur_tagID = ID_end, ID_start
         f.close()
 
         # add last trigram if file did not end with white line
         if prev_tagID != ID_end:
             trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
+            trigrams[cur_tagID, ID_end, ID_start] += 1.0
         return trigrams, emission
 
     def get_lexicon_from_file(self, input_file, tagIDs, wordIDs):
@@ -153,20 +170,22 @@ class HMM2_generator:
             except ValueError:
                 # end of sentence
                 trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
+                trigrams[cur_tagID, ID_end, ID_start] += 1.0
                 prev_tagID, cur_tagID = ID_end, ID_start
         f.close
 
         # add last trigram if file did not end with white line
         if prev_tagID != ID_end:
             trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
+            trigrams[cur_tagID, ID_end, ID_start] += 1.0
 
         return trigrams
 
-    def make_hmm(self, trigrams, emission, tagIDs, wordIDs):
+    def make_hmm(self, trigrams, emission, tagIDs, wordIDs, smoothing=None):
         """
         Return a HMM object
         """
-        transition_dict = self.get_transition_probs(trigrams)
+        transition_dict = self.get_transition_probs(trigrams, smoothing)
         emission_dict = self.get_emission_probs(emission)
         hmm = HMM2(transition_dict, emission_dict, tagIDs, wordIDs)
         return hmm
@@ -268,6 +287,68 @@ class HMM2_generator:
         f.close()
         return word_dict
 
+    def get_transition_probs(self, trigram_counts, smoothing=None):
+        """
+        Get trigram probabilities from a frequency matrix.
+        :param smoothing:   give a list with lambdas to smooth the probabilities
+                            with linear interpolation
+        :type smoothing     list
+        """
+
+        # Something is going wrong because of the normalisation (maybe ask Rens?)
+
+        trigram_sums = trigram_counts.sum(axis=2)
+        trigram_sums[trigram_sums == 0.0] = 1.0
+        trigram_probs = trigram_counts / trigram_sums[:, :, numpy.newaxis]
+
+        if not smoothing:
+            return trigram_probs
+
+        assert sum(smoothing) == 1.0, "lamdba parameters do not add up to 1"
+
+        # compute bigram counts
+        # note that this only works if the counts are generated
+        # from one file with the generator from this class
+        bigram_counts = trigram_counts.sum(axis=2)
+        bigram_counts[bigram_counts == 0.0] = 1.0
+        bigram_probs = bigram_counts/bigram_counts.sum(axis=1)[:, numpy.newaxis]
+
+        # compute unigram counts
+        # note that this only works if the counts are generated
+        # from one file with the generator from this class
+        unigram_counts = trigram_counts.sum(axis=(0, 2))
+        unigram_probs = unigram_counts/unigram_counts.sum()
+
+        # interpolate probabilities
+        l1, l2, l3 = smoothing
+        smoothed_probs = l1*unigram_probs + l2*bigram_probs + l3*trigram_probs
+
+        # reset probabilities for impossible trigrams (this is equivalent to
+        # setting l1 and l2 = 0 for those particular trigrams
+        smoothed_probs = self.reset_smoothed_probs(smoothed_probs)
+
+        return smoothed_probs
+
+    def reset_smoothed_probs(self, smoothed_probs):
+        """
+        Reset probabilities for impossible trigrams.
+        """
+        # reset matrix entries that correspond with trigrams
+        # containing TAG $$$, where TAG != ###
+        smoothed_probs[:, :-1, -2] = 0.0    # X !### $$$    # This one should be divided over all tags
+        smoothed_probs[:-1, -2, :] = 0.0    # !### $$$ X    # This one should be divided over all tags
+
+        # reset matrix entries that correspond with trigrams
+        # containing ### TAG where TAG != $$$
+        smoothed_probs[:, -1, :-2] = 0.0    # X ### !$$$
+        smoothed_probs[:, -1, -1] = 0.0     # X ### !$$$
+        smoothed_probs[-1, :-2, :] = 0.0    # ### !$$$ X    This one should be divided over all tags
+        smoothed_probs[-1, -1, :] = 0.0     # ### ### X
+
+        smoothed_probs[:, -1, -2] = 1.0     # P($$$, X ###) = 1
+
+        return smoothed_probs
+
     def transition_dict_add_alpha(self, alpha, trigram_count_matrix):
         """
         Add alpha smoothing for the trigram count dictionary
@@ -293,15 +374,3 @@ class HMM2_generator:
         tag_sums[tag_sums == 0.0] = 1
         lexicon /= tag_sums[:, numpy.newaxis]
         return lexicon
-
-    def get_transition_probs(self, trigram_count_matrix):
-        """
-        Get transition probabilities from a dictionary with
-        trigram counts
-        """
-        # compute the sums for every row
-        tag_sums = trigram_count_matrix.sum(axis=2)
-        tag_sums[tag_sums == 0.0] = 1.0
-        # divide the transition matrix by the broadcasted tag sums
-        trigram_count_matrix /= tag_sums[:, :, numpy.newaxis]
-        return trigram_count_matrix
