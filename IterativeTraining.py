@@ -52,8 +52,6 @@ class Train:
     """
     def __init__(self, combined_dataset):
         self.D = combined_dataset
-        self.lex_basis = self.D.lex_dict
-        self.unlabeled = self.D.unlabeled
 
     def train(self, start, iterations, scaling):
         """
@@ -61,21 +59,22 @@ class Train:
         Some more explanation.
         """
         hmm = start
-        lexicon_basis = scaling * self.lex_basis
+        lexicon_basis = scaling * self.D.lex_dict
         for i in xrange(iterations):
+            print "iteration", i
             hmm = self.iteration(hmm, lexicon_basis)
         return hmm
 
     def train_and_test(self, start, iterations, scaling, evaluation_set):
         hmm = start
         evaluation = self.load_evaluation(evaluation_set)
-        print 'loaded evaluation..'
         lexicon_basis = scaling * self.lex_basis
         for i in xrange(iterations):
+            print "iteration", i
             accuracy = self.compute_accuracy(hmm, evaluation)
-            print "accuracy before iteration %i: %f" % (i, accuracy)
-            print 'start iteration %i' % i
+            print "accuracy before iteration: %f" % (accuracy)
             hmm = self.iteration(hmm, lexicon_basis)
+            raw_input()
 
         print "accuracy after training:", accuracy
         return hmm
@@ -84,7 +83,7 @@ class Train:
         """
         Do one iteration of training.
         """
-        f = open(self.unlabeled, 'r')
+        f = open(self.D.unlabeled, 'r')
         sum_expected_counts = numpy.zeros(shape=hmm.emission.shape, dtype=numpy.float64)
         for line in f:
             training = ForwardBackward(line, hmm)
@@ -125,28 +124,37 @@ class Train:
             evaluation[sentence] = tag_sequence
         return evaluation
 
-    def compute_accuracy(self, hmm, evaluation):
+    def compute_accuracy(self, hmm, evaluation, ignore_tags=set([])):
         """
         Compute the accuracy of hmm tags on an
         validation dictionary.
         """
         V = Viterbi(hmm)
         accuracy = 0.0
+        print len(evaluation)
+        i = 0
         for sentence in evaluation:
+            i += 1
+            print i
             hmm_tags = V.compute_best_parse(sentence)[1]
             validation_tags = evaluation[sentence]
-            accuracy += self.accuracy(hmm_tags, validation_tags)
+            accuracy += self.accuracy(hmm_tags, validation_tags, ignore_tags)
         total_accuracy = accuracy/len(evaluation)
         return total_accuracy
 
-    def accuracy(self, hmm_tags, validation_tags):
+    def accuracy(self, hmm_tags, validation_tags, ignore_tags):
         """
         Compute the accuracy of the hmm-assigned tags.
         """
         accuracy = 0.0
-        print hmm_tags, validation_tags
-        for i in xrange(len(hmm_tags)):
-            if hmm_tags[i] == validation_tags[i]:
-                accuracy += 1.0
-        accuracy_sentence = accuracy/len(hmm_tags)
+        l = 0
+        try:
+            for i in xrange(len(hmm_tags)):
+                if hmm_tags[i] == validation_tags[i] and validation_tags[i] not in ignore_tags:
+                    accuracy += 1.0
+                    l += 1
+            accuracy_sentence = accuracy/l
+        except IndexError:
+            print hmm_tags, validation_tags
+            accuracy_sentence = 0
         return accuracy_sentence
