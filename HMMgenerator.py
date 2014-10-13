@@ -11,17 +11,19 @@ import copy
 
 class HMM2_generator:
     """
-    Initialise an HMM generator.
+    HMM2_generator is a class with functions to generate second
+    order hidden markov models from text files.
     """
-    def __init__(self):
-        pass
 
     def init_transition_matrix(self, tagIDs):
         """
-        Transitions are stored in a 3-dimensional matrix.
-        Initialising an empty transition matrix thus
-        equals generating an empty matrix of size N*N*N,
-        where N is the number of tags.
+        Transition probabilities are stored in a 3-dimensional
+        matrix. The probabilities can be accessed with tagIDs.
+        E.g., P(t3| t1, t2) can be found in T[t1, t2, t3].
+        Initialise an empty transition matrix.
+
+        :param tagIDs: a map from tagnames to IDs
+        :type tagIDs: dictionary
         """
         N = len(tagIDs)
         transition_matrix = numpy.zeros(shape=(N, N, N), dtype=numpy.float64)
@@ -29,6 +31,9 @@ class HMM2_generator:
 
     def init_lexicon_matrix(self, wordIDs, tagIDs):
         """
+        Emission probabilities are stored in a 2-dimensional
+        matrix. The probabilities can be accessed with tag-
+        and wordIDs. E.g. P(w|t) can be found in E[t, w].
         Initialise an empty lexicon matrix.
         """
         nr_of_words = len(wordIDs)
@@ -38,8 +43,10 @@ class HMM2_generator:
 
     def get_words_from_file(self, input_file):
         """
-        Get all words from a file containing
-        tokenised sentences.
+        Make a list of the words in the input file.
+        It is assumed the input is tokenised.
+        :param input_file: A file with tokenised sentences
+        :type input_file: str
         """
         f = open(input_file, 'r')
         words = set([])
@@ -52,18 +59,16 @@ class HMM2_generator:
 
     def generate_tag_IDs(self, tags):
         """
-        Generate a dictionary that stores the relation
-        between tags and transition/emission matrix.
-        The ID generated for a tag represents the index
-        under which the tag is stored in these matrices.
+        Given a set of tags, generate a dictionary that
+        assigns an ID to every tag. The tagID can be used
+        to look up information in the transition and
+        emission matrix.
         """
-        self.tagIDs = {}
-        i = 0
-        for tag in tags:
-            self.tagIDs[tag] = i
-            i += 1
-        self.tagIDs['$$$'] = i
-        self.tagIDs['###'] = i+1
+        IDs = [x for x in xrange(len(tags))]
+        maxID = IDs[-1]
+        self.tagIDs = dict(zip(tags, IDs))
+        self.tagIDs['$$$'] = maxID + 1
+        self.tagIDs['###'] = maxID + 2
         return self.tagIDs
 
     def generate_lexicon_IDs(self, words):
@@ -73,11 +78,7 @@ class HMM2_generator:
         word is the index that can be used to look up the
         word in the emission matrix
         """
-        self.wordIDs = {}
-        i = 0
-        for word in words:
-            self.wordIDs[word] = i
-            i += 1
+        self.wordIDs = dict(zip(words, [i for i in xrange(len(words))]))
         return self.wordIDs
 
     def find_tags(self, input_file):
@@ -97,12 +98,17 @@ class HMM2_generator:
 
     def get_hmm_dicts_from_file(self, input_file, tags, words):
         """
-        Generate hmm matrices from a file containing lines
-        with words and tags separated by a tab. Sentences are delimited by
-        newlines.
-        Trigrams stop at the end of the sentence, but both the
-        beginning and end of a sentence are included in the
-        trigrams.
+        Generate a matrix containing trigram counts from a file.
+        The beginning and end of the sentence are modelled with
+        the beginning and end of sentence tags ('$$$' and "###',
+        respectively).
+
+        :param input_file:  A file with labeled sentences. Every line of the file
+                            should contain a word and a tag separated by a tab.
+                            New sentences should be delimited by new lines.
+        :type input_file:   string
+        :param tags:        A list or set of possible tags
+        :param words:       A list or set of all words
         """
         f = open(input_file, 'r')
         wordIDs = self.generate_lexicon_IDs(words)
@@ -111,32 +117,41 @@ class HMM2_generator:
         emission = self.init_lexicon_matrix(wordIDs, tagIDs)
         ID_end, ID_start = tagIDs['###'], tagIDs['$$$']
         prev_tagID, cur_tagID = ID_end, ID_start         # beginning of sentence
+
+        # loop over all lines in file
         for line in f:
             try:
+                # line contains a tag and a word
                 word, tag = line.split()
                 wordID, tagID = wordIDs[word], tagIDs[tag]
-                trigrams[prev_tagID, cur_tagID, tagID] += 1.0
-                emission[tagID, wordID] += 1.0
+                trigrams[prev_tagID, cur_tagID, tagID] += 1
+                emission[tagID, wordID] += 1
                 prev_tagID = cur_tagID
                 cur_tagID = tagID
             except ValueError:
                 # end of sentence
-                trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
-                trigrams[cur_tagID, ID_end, ID_start] += 1.0
+                trigrams[prev_tagID, cur_tagID, ID_end] += 1
+                trigrams[cur_tagID, ID_end, ID_start] += 1
                 prev_tagID, cur_tagID = ID_end, ID_start
         f.close()
 
         # add last trigram if file did not end with white line
         if prev_tagID != ID_end:
-            trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
-            trigrams[cur_tagID, ID_end, ID_start] += 1.0
+            trigrams[prev_tagID, cur_tagID, ID_end] += 1
+            trigrams[cur_tagID, ID_end, ID_start] += 1
+
         return trigrams, emission
 
     def get_lexicon_from_file(self, input_file, tagIDs, wordIDs):
         """
-        Generate an emission matrix from a file with lines
         containing a word and a tag separated by a tab.
-        Sentences are delimited by new lines.
+
+        :param input_file:  A file with labeled sentences. Every line of the file
+                            should contain a word and a tag separated by a tab.
+                            New sentences should be delimited by new lines.
+        :type input_file:   string
+        :param tagIDs:      A dictionary with IDs for all possible tags.
+        :param wordIDs:     A dictionary with IDs for all possible words.
         """
         f = open(input_file, 'r')
         emission = self.init_lexicon_matrix(wordIDs, tagIDs)
@@ -144,7 +159,7 @@ class HMM2_generator:
             try:
                 word, tag = line.split()
                 wordID, tagID = wordIDs[word], tagIDs[tag]
-                emission[tagID, wordID] += 1.0
+                emission[tagID, wordID] += 1
             except ValueError:
                 # end of sentence
                 pass
@@ -153,8 +168,16 @@ class HMM2_generator:
 
     def get_trigrams_from_file(self, input_file, tagIDs):
         """
-        Generate an hmm transition matrix from an input file
+        Generate a matrix with trigram counts from the input file.
+        Use the tagIDs as indices for the different tags.
         containing lines with a word and a tag separated by a tab.
+
+        :param input_file:  A file with labeled sentences. Every line of the file
+                            should contain a word and a tag separated by a tab.
+                            New sentences should be delimited by new lines.
+        :type input_file:   string
+        :param tagIDs:      A dictionary with IDs for all possible tags.
+        :param wordIDs:     A dictionary with IDs for all possible words.
         """
         f = open(input_file, 'r')
         trigrams = self.init_transition_matrix(tagIDs)
@@ -183,7 +206,16 @@ class HMM2_generator:
 
     def make_hmm(self, trigrams, emission, tagIDs, wordIDs, smoothing=None):
         """
-        Return a HMM object
+        Make an HMM object.
+
+        :param trigrams: A 3-dimensional matrix with trigram counts.
+        :param emission: A 2-dimensional matrix with lexical counts.
+        :param tagIDs:  A map from tags to IDs.
+        :type tagIDs:   dictionary
+        :param wordIDs: A map from words to IDs.
+        :type wordIDs:  dictionary
+        :param smoothing:   Optional argument to provide the lambda
+                            values for linear interpolation.
         """
         transition_dict = self.get_transition_probs(trigrams, smoothing)
         emission_dict = self.get_emission_probs(emission)
@@ -267,7 +299,7 @@ class HMM2_generator:
         for line in f:
             words = line.split()
             for word in words:
-                word_dict[word] = word_dict.get(word, 0.0) + 1.0
+                word_dict[word] = word_dict.get(word, 0) + 1
         f.close()
         return word_dict
 
@@ -295,7 +327,8 @@ class HMM2_generator:
         :type smoothing     list
         """
 
-        # Something is going wrong because of the normalisation (maybe ask Rens?)
+        # Impossible events mess up the probability model, so that the counts
+        # do not add up to 1, I should do something about this.
 
         trigram_sums = trigram_counts.sum(axis=2)
         trigram_sums[trigram_sums == 0.0] = 1.0
@@ -333,19 +366,21 @@ class HMM2_generator:
         """
         Reset probabilities for impossible trigrams.
         """
+        # N = float(len(smoothed_probs[:, 1, 1]))
+
         # reset matrix entries that correspond with trigrams
         # containing TAG $$$, where TAG != ###
-        smoothed_probs[:, :-1, -2] = 0.0    # X !### $$$    # This one should be divided over all tags
-        smoothed_probs[:-1, -2, :] = 0.0    # !### $$$ X    # This one should be divided over all tags
+        smoothed_probs[:, :-1, -2] = 0    # P($$$ | X !###)
+        smoothed_probs[:-1, -2, :] = 0   # P(X | !### $$$)
 
         # reset matrix entries that correspond with trigrams
         # containing ### TAG where TAG != $$$
-        smoothed_probs[:, -1, :-2] = 0.0    # X ### !$$$
-        smoothed_probs[:, -1, -1] = 0.0     # X ### !$$$
-        smoothed_probs[-1, :-2, :] = 0.0    # ### !$$$ X    This one should be divided over all tags
-        smoothed_probs[-1, -1, :] = 0.0     # ### ### X
+        smoothed_probs[:, -1, :-2] = 0.0    # P(!$$$ | X ###)
+        smoothed_probs[:, -1, -1] = 0.0     # P(### | X ###)
+        smoothed_probs[-1, :-2, :] = 0    # P(X | ### !$$$ )
+        smoothed_probs[-1, -1, :] = 0     # P(X | ### ### X
 
-        smoothed_probs[:, -1, -2] = 1.0     # P($$$, X ###) = 1
+        smoothed_probs[:, -1, -2] = 1.0     # P($$$| X ###) = 1
 
         return smoothed_probs
 
