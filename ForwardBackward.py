@@ -1,7 +1,5 @@
 """
 A class to efficiently compute expected counts using the forward-backward algorithm
-
-TODO: Implement scaling labeled/unlabeled datasets
 """
 
 import numpy
@@ -36,19 +34,11 @@ class ForwardBackward:
         lex_dict += expected_counts
         return lex_dict
 
-    def update_count_dict(self, expected_counts):
-        """
-        Update the counts in an inputted
-        count matrix with the expected counts
-        for this sentence.
-        """
-        raise NotImplementedError
-
     def compute_expected_counts(self):
         """
-        Compute the counts for every tag at every possible position
+        Compute the counts for every tag at every position of the sentence.
         """
-        # I don't know if this can maybe be done better with the word_indices
+
         expected_counts = numpy.zeros(shape=self.hmm.emission.shape, dtype=numpy.float64)
 
         # compute all required sums and probabilities
@@ -65,7 +55,6 @@ class ForwardBackward:
 
         return expected_counts
 
-    # @profile
     def compute_all_forward_probabilities(self):
         """
         Iterative algorithm to compute all forward
@@ -85,7 +74,6 @@ class ForwardBackward:
         self.forward = forward
         return
 
-    # @profile
     def compute_all_backward_probabilities(self):
         """
         Compute all backward probabilities for the sentence
