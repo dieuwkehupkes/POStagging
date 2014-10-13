@@ -17,13 +17,11 @@ class Viterbi:
         """
         self.hmm = hmm2
 
-    @profile
     def compute_best_parse(self, sequence):
         """
         Compute the viterbi parse for the sequence.
         """
-        # rewrite this in matrixnotation
-        # rewrite this using logs
+        # Maybe I should rewrite this to use logs instead of probs
         words = sequence.split()
         best_sequence = []
         N = len(self.hmm.tagIDs)
@@ -39,10 +37,8 @@ class Viterbi:
         for position in xrange(1, length):
             wordID = self.hmm.wordIDs[words[position]]
             probs = numpy.transpose(dynamic_table[position-1, :, :] * self.hmm.transition[:, :, :].transpose(2, 0, 1), (0, 2, 1))
-            probs_max = probs.max(axis=2)
-            argmax = probs.argmax(axis=2)
-            dynamic_table[position, :, :] = (self.hmm.emission[:, wordID, numpy.newaxis] * probs_max).transpose()
-            backpointers[position, :, :] = argmax
+            dynamic_table[position, :, :] = (self.hmm.emission[:, wordID, numpy.newaxis] * probs.max(axis=2)).transpose()
+            backpointers[position, :, :] = probs.argmax(axis=2)
 
         # last tag
         dynamic_table[-1, :, :] *= self.hmm.transition[:, :, -1]
@@ -52,6 +48,7 @@ class Viterbi:
         tagID1, tagID2 = numpy.unravel_index(dynamic_table[-1, :, :].argmax(), dynamic_table[-1, :, :].shape)
 
         # loop back trough backpointers to find best sequence
+        # Maybe I should put this in another function
         best_sequence.append(self.hmm.tagIDs_reversed[tagID2])
         backpointer = (-1, tagID1, tagID2)
         for position in reversed(xrange(length-1)):
@@ -62,6 +59,3 @@ class Viterbi:
         best_sequence.reverse()
 
         return best_prob, best_sequence
-
-    def traverse_backpointers():
-        pass
