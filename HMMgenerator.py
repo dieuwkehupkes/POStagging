@@ -7,6 +7,8 @@ from HMM2 import HMM2
 import string
 import numpy
 import copy
+from collections import Counter
+import csv      # do something with this
 
 
 class HMM2_generator:
@@ -41,22 +43,6 @@ class HMM2_generator:
         lexicon_matrix = numpy.zeros(shape=(nr_of_tags, nr_of_words), dtype=numpy.float64)
         return lexicon_matrix
 
-    def get_words_from_file(self, input_file):
-        """
-        Make a list of the words in the input file.
-        It is assumed the input is tokenised.
-        :param input_file: A file with tokenised sentences
-        :type input_file: str
-        """
-        f = open(input_file, 'r')
-        words = set([])
-        for line in f:
-            try:
-                words = words.union(set(line.split()))
-            except IndexError:
-                continue
-        return words
-
     def generate_tag_IDs(self, tags):
         """
         Given a set of tags, generate a dictionary that
@@ -81,48 +67,56 @@ class HMM2_generator:
         self.wordIDs = dict(zip(words, [i for i in xrange(len(words))]))
         return self.wordIDs
 
-    def find_tags(self, input_file):
+    def find_tags(self, input_data):
         """
-        Find all the tags occuring in an input file.
+        Find all the tags occuring in the inputdata. Input data
+        can be both a file name and a list with sentences.
         """
-        f = open(input_file, 'r')
-        tags = set([])
-        for line in f:
-            try:
-                word, tag = line.split()
-                tags.add(tag)
-            except ValueError:
-                continue
-        f.close()
+        data = set(self.get_data(input_data))
+        data.remove('\n')
+        tags = set([item.split()[1] for item in data])
         return tags
 
-    def get_hmm_dicts_from_file(self, input_file, tags, words):
+    def get_hmm_dicts_from_file(self, input_data, tags, words):
         """
         Generate a matrix containing trigram counts from a file.
         The beginning and end of the sentence are modelled with
         the beginning and end of sentence tags ('$$$' and "###',
         respectively).
 
-        :param input_file:  A file with labeled sentences. Every line of the file
+        :param input_data:  A list with sentences or a file with labeled
+                            sentences. If input is a file, every line of it
                             should contain a word and a tag separated by a tab.
                             New sentences should be delimited by new lines.
-        :type input_file:   string
+        :type input_data:   string or list
         :param tags:        A list or set of possible tags
         :param words:       A list or set of all words
         """
-        f = open(input_file, 'r')
+        # make list representation data.
+        if isinstance(input_data, str):
+            f = open(input_data, 'r')
+            data = f.readlines()
+        elif isinstance(input_data, list):
+            data = input_data
+
+       # generate word and tagIDs 
         wordIDs = self.generate_lexicon_IDs(words)
         tagIDs = self.generate_tag_IDs(tags)
+        ID_end, ID_start = tagIDs['###'], tagIDs['$$$']
+
+        # initialise transition and emission matrix
         trigrams = self.init_transition_matrix(tagIDs)
         emission = self.init_lexicon_matrix(wordIDs, tagIDs)
-        ID_end, ID_start = tagIDs['###'], tagIDs['$$$']
-        prev_tagID, cur_tagID = ID_end, ID_start         # beginning of sentence
 
-        # loop over all lines in file
-        for line in f:
+        # initialisatie
+        prev_tagID, cur_tagID = ID_end, ID_start
+
+        # loop over lines in list:
+        # Maybe this can be done faster or smarter
+        for wordtag in data:
             try:
                 # line contains a tag and a word
-                word, tag = line.split()
+                word, tag = wordtag.split()
                 wordID, tagID = wordIDs[word], tagIDs[tag]
                 trigrams[prev_tagID, cur_tagID, tagID] += 1
                 emission[tagID, wordID] += 1
@@ -142,65 +136,83 @@ class HMM2_generator:
 
         return trigrams, emission
 
-    def get_lexicon_from_file(self, input_file, tagIDs, wordIDs):
+    def get_lexicon_counts(self, input_data, tagIDs, wordIDs):
         """
         containing a word and a tag separated by a tab.
 
-        :param input_file:  A file with labeled sentences. Every line of the file
+        :param input_data:  A list with sentences or a file with labeled
+                            sentences. If input is a file, every line of it
                             should contain a word and a tag separated by a tab.
                             New sentences should be delimited by new lines.
-        :type input_file:   string
+                            should contain a word and a tag separated by a tab.
+                            New sentences should be delimited by new lines.
+        :type input_data:   string or list
         :param tagIDs:      A dictionary with IDs for all possible tags.
         :param wordIDs:     A dictionary with IDs for all possible words.
         """
-        f = open(input_file, 'r')
+        # Load data
+        if isinstance(input_data, str):
+            f = open(input_data, 'r')
+            data = f.readlines()
+        else:
+            data = input_data
+
+        # initialise emission matrix
         emission = self.init_lexicon_matrix(wordIDs, tagIDs)
-        for line in f:
-            try:
-                word, tag = line.split()
-                wordID, tagID = wordIDs[word], tagIDs[tag]
-                emission[tagID, wordID] += 1
-            except ValueError:
-                # end of sentence
-                pass
-        f.close()
+
+        # generate counts for all words in the data
+        counts = Counter(data)
+
+        # remove newlines
+        del counts['\n']
+
+        # add counts to lexicon
+        for wordtag in counts:
+            word, tag = wordtag.split()
+            emission[tagIDs[tag], wordIDs[word]] = counts[wordtag]
+
         return emission
 
-    def get_trigrams_from_file(self, input_file, tagIDs):
+    def get_trigrams_from_file(self, input_data, tagIDs):
         """
         Generate a matrix with trigram counts from the input file.
         Use the tagIDs as indices for the different tags.
         containing lines with a word and a tag separated by a tab.
 
-        :param input_file:  A file with labeled sentences. Every line of the file
+        :param input_data:  A list with sentences or a file with labeled
+                            sentences. If input is a file, every line of it
                             should contain a word and a tag separated by a tab.
                             New sentences should be delimited by new lines.
-        :type input_file:   string
+        :type input_data:   string or list
         :param tagIDs:      A dictionary with IDs for all possible tags.
         :param wordIDs:     A dictionary with IDs for all possible words.
         """
-        f = open(input_file, 'r')
+        # get data
+        data = self.get_data(input_data)
+
+        # Initialisation
         trigrams = self.init_transition_matrix(tagIDs)
         ID_end, ID_start = tagIDs['###'], tagIDs['$$$']
         prev_tagID, cur_tagID = ID_end, ID_start        # beginning of sentence
-        for line in f:
+
+        # loop over data
+        for line in data:
             try:
                 word, tag = line.split()
                 tagID = tagIDs[tag]
-                trigrams[prev_tagID, cur_tagID, tagID] += 1.0
+                trigrams[prev_tagID, cur_tagID, tagID] += 1
                 prev_tagID = cur_tagID
                 cur_tagID = tagID
             except ValueError:
                 # end of sentence
-                trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
-                trigrams[cur_tagID, ID_end, ID_start] += 1.0
+                trigrams[prev_tagID, cur_tagID, ID_end] += 1
+                trigrams[cur_tagID, ID_end, ID_start] += 1
                 prev_tagID, cur_tagID = ID_end, ID_start
-        f.close
 
         # add last trigram if file did not end with white line
         if prev_tagID != ID_end:
-            trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
-            trigrams[cur_tagID, ID_end, ID_start] += 1.0
+            trigrams[prev_tagID, cur_tagID, ID_end] += 1
+            trigrams[cur_tagID, ID_end, ID_start] += 1
 
         return trigrams
 
@@ -232,6 +244,7 @@ class HMM2_generator:
         counts will remain unchanged.
         """
         nr_of_tags = len(self.tagIDs) - 2
+
         # check if punctiation tag is in lexicon
         punctID = None
         if 'LET' in self.tagIDs:
@@ -239,20 +252,27 @@ class HMM2_generator:
             punctID = self.tagIDs['LET']
         word_sums = lexicon_counts.sum(axis=0)
 
+        # loop over words found in unlabeled file
         for word in unlabeled_dict:
             wordID = self.wordIDs[word]
+
+            # If word is in punctuation, assign punctuation tag
+            # and continue
             if word in string.punctuation:
                 lexicon_counts[punctID, wordID] += 1
                 continue
 
+            # check occurences of word
             word_sum_cur = word_sums[wordID]
-            if word_sum_cur == 0.0:
-                word_sum_cur = 1.0
+            if word_sum_cur == 0:
+                word_sum_cur = 1
 
+            # compute additional frequencies for word tag pairs
             extra_freq = unlabeled_dict[word]/word_sum_cur*ratio
             lexicon_counts[:-2, wordID] += extra_freq
             if punctID:
                 lexicon_counts[punctID, wordID] -= extra_freq
+
         return lexicon_counts
 
     def lexicon_dict_add_unlabeled(self, word_dict, lexicon):
@@ -289,34 +309,30 @@ class HMM2_generator:
                 raise KeyError
         return new_lexicon
 
-    def unlabeled_make_word_list(self, unlabeled_file):
+    def unlabeled_make_word_list(self, input_data):
         """
         Make a dictionary with all words in
         unlabeled file.
         """
-        f = open(unlabeled_file, 'r')
-        word_dict = {}
-        for line in f:
-            words = line.split()
-            for word in words:
-                word_dict[word] = word_dict.get(word, 0) + 1
-        f.close()
+        data = self.get_data(input_data)
+        word_list = ' '.join(data).split()
+        
+        word_dict = Counter(word_list)
         return word_dict
 
-    def labeled_make_word_list(self, labeled_file):
+    def labeled_make_word_list(self, input_data):
         """
         Make a dictionary with all words in a
         labeled file.
         """
-        f = open(labeled_file, 'r')
+        data = self.get_data(input_data)
         word_dict = {}
-        for line in f:
+        for line in data:
             try:
                 word, tag = line.split()
                 word_dict[word] = word_dict.get(word, 0) + 1
             except ValueError:
                 continue
-        f.close()
         return word_dict
 
     def get_transition_probs(self, trigram_counts, smoothing=None):
@@ -337,13 +353,20 @@ class HMM2_generator:
         if not smoothing:
             return trigram_probs
 
+        # Check if lambda values sum up to one
         assert sum(smoothing) == 1.0, "lamdba parameters do not add up to 1"
+
+        # smooth counts to keep prob model consisent
+        smoothed_counts = trigram_counts + 0.001
+        smoothed_counts = self.reset_smoothed_counts(smoothed_counts)
+        smoothed_sums = smoothed_counts.sum(axis=2)
+        smoothed_sums[smoothed_sums == 0.0] = 1.0
+        smoothed_probs = smoothed_counts / smoothed_sums[:, :, numpy.newaxis]
 
         # compute bigram counts
         # note that this only works if the counts are generated
         # from one file with the generator from this class
-        bigram_counts = trigram_counts.sum(axis=2)
-        bigram_counts[bigram_counts == 0.0] = 1.0
+        bigram_counts = self.reset_bigram_counts(smoothed_sums)
         bigram_probs = bigram_counts/bigram_counts.sum(axis=1)[:, numpy.newaxis]
 
         # compute unigram counts
@@ -356,33 +379,48 @@ class HMM2_generator:
         l1, l2, l3 = smoothing
         smoothed_probs = l1*unigram_probs + l2*bigram_probs + l3*trigram_probs
 
-        # reset probabilities for impossible trigrams (this is equivalent to
-        # setting l1 and l2 = 0 for those particular trigrams
-        smoothed_probs = self.reset_smoothed_probs(smoothed_probs)
+        # reset probabilites for impossible events
+        smoothed_probs = self.reset_smoothed_counts(smoothed_probs)
+        
+        # normalise again
+        sums = smoothed_probs.sum(axis=2)
+        sums[sums == 0.0] = 1.0
+        probabilities = smoothed_probs/sums[:, :, numpy.newaxis]
 
-        return smoothed_probs
+        return probabilities
 
-    def reset_smoothed_probs(self, smoothed_probs):
+    def reset_bigram_counts(self, bigram_counts):
+        """
+        Reset counts for impossible bigrams.
+        """
+        # reset counts for bigrams !### $$$
+        bigram_counts[:-2, -2] = 0.0
+
+        # reset counts for bigrams ### !$$$
+        bigram_counts[-1, :-2] = 0.0
+        bigram_counts[-1, -1] = 0.0
+
+        return bigram_counts
+
+    def reset_smoothed_counts(self, smoothed_counts):
         """
         Reset probabilities for impossible trigrams.
         """
-        # N = float(len(smoothed_probs[:, 1, 1]))
-
         # reset matrix entries that correspond with trigrams
         # containing TAG $$$, where TAG != ###
-        smoothed_probs[:, :-1, -2] = 0    # P($$$ | X !###)
-        smoothed_probs[:-1, -2, :] = 0   # P(X | !### $$$)
+        smoothed_counts[:, :-1, -2] = 0.0    # X !### $$$
+        smoothed_counts[:-1, -2, :] = 0.0   # !### $$$ X
 
         # reset matrix entries that correspond with trigrams
         # containing ### TAG where TAG != $$$
-        smoothed_probs[:, -1, :-2] = 0.0    # P(!$$$ | X ###)
-        smoothed_probs[:, -1, -1] = 0.0     # P(### | X ###)
-        smoothed_probs[-1, :-2, :] = 0    # P(X | ### !$$$ )
-        smoothed_probs[-1, -1, :] = 0     # P(X | ### ### X
+        smoothed_counts[:, -1, :-2] = 0.0    # X ### !$$$
+        smoothed_counts[:, -1, -1] = 0.0     # X ### ###
+        smoothed_counts[-1, :-2, :] = 0.0    # ### !$$$ X
+        smoothed_counts[-1, -1, :] = 0.0     # ### ### X
 
-        smoothed_probs[:, -1, -2] = 1.0     # P($$$| X ###) = 1
+        # smoothed_probs[:, -1, -2] = 1.0     # P($$$| X ###) = 1
 
-        return smoothed_probs
+        return smoothed_counts
 
     def transition_dict_add_alpha(self, alpha, trigram_count_matrix):
         """
@@ -409,3 +447,21 @@ class HMM2_generator:
         tag_sums[tag_sums == 0.0] = 1
         lexicon /= tag_sums[:, numpy.newaxis]
         return lexicon
+
+    def get_data(self, input_data):
+        """
+        If input_data is a filename, return
+        a list of the lines in the file with
+        this name. Otherwise, return
+        inputdata as inputted.
+        :rtype: list
+        """
+        if isinstance(input_data, str):
+            f = open(input_data, 'r')
+            data = f.readlines()
+            f.close()
+        elif isinstance(input_data, list):
+            data = input_data
+        else:
+            return ValueError
+        return data
