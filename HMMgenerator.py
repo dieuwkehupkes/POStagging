@@ -450,14 +450,15 @@ class HMM2_generator:
         :rtype: list
         """
         if isinstance(input_data, list):
-            return input_data
+            data = input_data
         elif isinstance(input_data, str):
             f = open(input_data, 'r')
             data = f.readlines()
             f.close()
-            if delimiter:
-                [x.split() for x in data]
         else:
             return ValueError
+
+        if delimiter and not isinstance(data[0], list):
+            data = [x.split() for x in data]
 
         return data
