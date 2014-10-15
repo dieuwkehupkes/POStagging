@@ -43,6 +43,7 @@ class Test:
         transition_matrix_man[tagIDs['LID'], tagIDs['N'], tagIDs['VZ']] = 1.0 / 6.0
         transition_matrix_man[tagIDs['N'], tagIDs['WW'], tagIDs['LID']] = 2.0 / 3.0
         transition_matrix_man[tagIDs['N'], tagIDs['WW'], tagIDs['VZ']] = 1.0 / 3.0
+        transition_matrix_man[tagIDs['N'], -1, -2] = 1.0
         assert numpy.array_equal(transition_matrix_man, hmm.transition), transition_matrix_man == hmm.transition
         return
 
@@ -64,7 +65,7 @@ class Test:
         Test de function finding the Viterbi parse.
         """
         hmm = self.toy_hmm()
-        s = "de man heeft een huis"
+        s = "de man heeft een huis".split()
         prob, sequence = hmm.compute_best_sequence(s)
         assert abs(prob - 16/15876.0) < 1e-10
         assert sequence == ['LID', 'N', 'WW', 'LID', 'N']
@@ -76,10 +77,10 @@ class Test:
         compute_probability function.
         """
         hmm = self.toy_hmm_smoothed()
-        s = "de man heeft een huis"
+        s = "de man heeft een huis".split()
         prob, sequence = hmm.compute_best_sequence(s)
         prob2 = hmm.compute_probability('de man heeft een huis'.split(), sequence)
-        assert prob == prob2
+        assert abs(prob - prob2) < 1e-10
         return
 
     def toy_hmm(self):
@@ -112,10 +113,10 @@ class Test:
         all_words = set(words_labeled.keys()).union(set(words_unlabeled.keys()))
         tags = set(['LID', 'VZ', 'N', 'WW'])
         trans_dict, lex_dict = generator.get_hmm_dicts_from_file('test1', tags, all_words)
-        trans_dict = generator.transition_dict_add_alpha(0.5, trans_dict)
+        # print generator.get_transition_probs1(trans_dict)
         lex_dict = generator.weighted_lexicon_smoothing(lex_dict, words_unlabeled, ratio=0.5)
         # lex_dict = generator.lexicon_dict_add_unlabeled(words_unlabeled, lex_dict)
-        hmm = generator.make_hmm(trans_dict, lex_dict, generator.tagIDs, generator.wordIDs)
+        hmm = generator.make_hmm(trans_dict, lex_dict, generator.tagIDs, generator.wordIDs, smoothing=[0.01, 0.09, 0.9])
         os.remove('test1')
         return hmm
 
