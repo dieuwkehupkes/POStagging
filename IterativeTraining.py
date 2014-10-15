@@ -1,7 +1,6 @@
 """
 A class for iterative semi-supervised training.
 explain better
-MOVE COMPUTE EXPECTED COUNTS FUNCTION TO HMM2 CLASS
 """
 
 # from HMMgenerator import HMM2_generator as gen
@@ -65,13 +64,13 @@ class Train:
             hmm = self.iteration(hmm, lexicon_basis)
         return hmm
 
-    def train_and_test(self, start, iterations, scaling, evaluation_set):
+    def train_and_test(self, start, iterations, scaling, evaluation_set, ignore_tags=set([])):
         hmm = start
         evaluation = self.load_evaluation(evaluation_set)
         lexicon_basis = scaling * self.lex_basis
         for i in xrange(iterations):
             print "iteration", i
-            accuracy = self.compute_accuracy(hmm, evaluation)
+            accuracy = self.compute_accuracy(hmm, evaluation, ignore_tags)
             print "accuracy before iteration: %f" % (accuracy)
             hmm = self.iteration(hmm, lexicon_basis)
             raw_input()
@@ -103,25 +102,28 @@ class Train:
         word and a tag separated by a tab. Sentences are
         delimited by newlines.
         """
-        f = open(evaluation, 'r')
-        evaluation = {}
-        sentence = ''
-        tag_sequence = []
-        for line in f:
+        # read in and split data
+        lines = open(evaluation, 'r').readlines()
+        data = [x.split() for x in lines]
+
+        evaluation = []
+
+        # loop until last sentence is found
+        end = -1
+        end_data = len(data)
+        while end != end_data:
+            start = end+1
             try:
-                word, tag = line.split()
-                sentence = sentence + ' ' + word
-                tag_sequence.append(tag)
+                # find next end of sentence
+                end = data.index([], start)
             except ValueError:
-                if sentence != '':
-                    evaluation[sentence] = tag_sequence
-                    sentence = ''
-                    tag_sequence = []
+                end = end_data
 
-        f.close()
+            # add next sentence
+            sentence = [item[0] for item in data[start: end]]
+            tags = [item[1] for item in data[start: end]]
+            evaluation.append((sentence, tags))
 
-        if sentence != '':
-            evaluation[sentence] = tag_sequence
         return evaluation
 
     def compute_accuracy(self, hmm, evaluation, ignore_tags=set([])):
@@ -131,13 +133,9 @@ class Train:
         """
         V = Viterbi(hmm)
         accuracy = 0.0
-        print len(evaluation)
-        i = 0
-        for sentence in evaluation:
-            i += 1
-            print i
+        for item in evaluation:
+            sentence, validation_tags = item
             hmm_tags = V.compute_best_parse(sentence)[1]
-            validation_tags = evaluation[sentence]
             accuracy += self.accuracy(hmm_tags, validation_tags, ignore_tags)
         total_accuracy = accuracy/len(evaluation)
         return total_accuracy
@@ -146,15 +144,22 @@ class Train:
         """
         Compute the accuracy of the hmm-assigned tags.
         """
-        accuracy = 0.0
-        l = 0
+        # I could also do this with numpy arrays to make it faster
+
+        nr_tags = len(validation_tags)      # nr of tags in sentence
+
+        # compute nr of equal tags
+        equal = [validation_tags[i] for i in xrange(nr_tags) if validation_tags[i] == hmm_tags[i]]
+        nr_correct = float(len(equal))
+
+        # check tags to be ignored
+        ignore_tags_correct = sum([equal.count(tag) for tag in ignore_tags])
+        ignore_tags_total = sum([validation_tags.count(tag) for tag in ignore_tags])
+
+        # compute accuracy
         try:
-            for i in xrange(len(hmm_tags)):
-                if hmm_tags[i] == validation_tags[i] and validation_tags[i] not in ignore_tags:
-                    accuracy += 1.0
-                    l += 1
-            accuracy_sentence = accuracy/l
-        except IndexError:
-            print hmm_tags, validation_tags
-            accuracy_sentence = 0
-        return accuracy_sentence
+            accuracy = (nr_correct - ignore_tags_correct)/(nr_tags - ignore_tags_total)
+        except ZeroDivisionError:
+            accuracy = 1.0
+
+        return accuracy

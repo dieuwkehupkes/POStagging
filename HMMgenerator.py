@@ -9,7 +9,8 @@ import numpy
 import copy
 from collections import Counter
 import csv      # do something with this
-
+import sys
+import itertools
 
 class HMM2_generator:
     """
@@ -61,7 +62,7 @@ class HMM2_generator:
         """
         Generate a dictionary that stores the relation between
         words and emission matrix. The ID generated for a
-        word is the index that can be used to look up the
+       word is the index that can be used to look up the
         word in the emission matrix
         """
         self.wordIDs = dict(zip(words, [i for i in xrange(len(words))]))
@@ -72,9 +73,8 @@ class HMM2_generator:
         Find all the tags occuring in the inputdata. Input data
         can be both a file name and a list with sentences.
         """
-        data = set(self.get_data(input_data))
-        data.remove('\n')
-        tags = set([item.split()[1] for item in data])
+        data = self.get_data(input_data, delimiter=True)
+        tags = set([item[1] for item in data if item != []])
         return tags
 
     def get_hmm_dicts_from_file(self, input_data, tags, words):
@@ -93,11 +93,7 @@ class HMM2_generator:
         :param words:       A list or set of all words
         """
         # make list representation data.
-        if isinstance(input_data, str):
-            f = open(input_data, 'r')
-            data = f.readlines()
-        elif isinstance(input_data, list):
-            data = input_data
+        data = self.get_data(input_data, delimiter=True)
 
        # generate word and tagIDs 
         wordIDs = self.generate_lexicon_IDs(words)
@@ -116,7 +112,7 @@ class HMM2_generator:
         for wordtag in data:
             try:
                 # line contains a tag and a word
-                word, tag = wordtag.split()
+                word, tag = wordtag
                 wordID, tagID = wordIDs[word], tagIDs[tag]
                 trigrams[prev_tagID, cur_tagID, tagID] += 1
                 emission[tagID, wordID] += 1
@@ -127,7 +123,6 @@ class HMM2_generator:
                 trigrams[prev_tagID, cur_tagID, ID_end] += 1
                 trigrams[cur_tagID, ID_end, ID_start] += 1
                 prev_tagID, cur_tagID = ID_end, ID_start
-        f.close()
 
         # add last trigram if file did not end with white line
         if prev_tagID != ID_end:
@@ -151,24 +146,20 @@ class HMM2_generator:
         :param wordIDs:     A dictionary with IDs for all possible words.
         """
         # Load data
-        if isinstance(input_data, str):
-            f = open(input_data, 'r')
-            data = f.readlines()
-        else:
-            data = input_data
+        data = self.get_data(input_data, delimiter=True)
 
         # initialise emission matrix
         emission = self.init_lexicon_matrix(wordIDs, tagIDs)
 
         # generate counts for all words in the data
-        counts = Counter(data)
+        counts = Counter([tuple(item) for item in data])
 
         # remove newlines
-        del counts['\n']
+        del counts[()]
 
         # add counts to lexicon
         for wordtag in counts:
-            word, tag = wordtag.split()
+            word, tag = wordtag
             emission[tagIDs[tag], wordIDs[word]] = counts[wordtag]
 
         return emission
@@ -188,7 +179,7 @@ class HMM2_generator:
         :param wordIDs:     A dictionary with IDs for all possible words.
         """
         # get data
-        data = self.get_data(input_data)
+        data = self.get_data(input_data, delimiter='\t')
 
         # Initialisation
         trigrams = self.init_transition_matrix(tagIDs)
@@ -196,23 +187,25 @@ class HMM2_generator:
         prev_tagID, cur_tagID = ID_end, ID_start        # beginning of sentence
 
         # loop over data
+        # for line in data:
         for line in data:
             try:
-                word, tag = line.split()
+                word, tag = line
                 tagID = tagIDs[tag]
-                trigrams[prev_tagID, cur_tagID, tagID] += 1
+                trigrams[prev_tagID, cur_tagID, tagID] += 1.0
                 prev_tagID = cur_tagID
                 cur_tagID = tagID
             except ValueError:
                 # end of sentence
-                trigrams[prev_tagID, cur_tagID, ID_end] += 1
-                trigrams[cur_tagID, ID_end, ID_start] += 1
+                trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
+                trigrams[cur_tagID, ID_end, ID_start] += 1.0
                 prev_tagID, cur_tagID = ID_end, ID_start
+        # f.close()
 
         # add last trigram if file did not end with white line
         if prev_tagID != ID_end:
-            trigrams[prev_tagID, cur_tagID, ID_end] += 1
-            trigrams[cur_tagID, ID_end, ID_start] += 1
+            trigrams[prev_tagID, cur_tagID, ID_end] += 1.0
+            trigrams[cur_tagID, ID_end, ID_start] += 1.0
 
         return trigrams
 
@@ -314,18 +307,18 @@ class HMM2_generator:
         Make a dictionary with all words in
         unlabeled file.
         """
-        data = self.get_data(input_data)
-        word_list = ' '.join(data).split()
-        
-        word_dict = Counter(word_list)
-        return word_dict
+        data = self.get_data(input_data, delimiter=True)
+        words = Counter(itertools.chain(*data))
+        return words
 
     def labeled_make_word_list(self, input_data):
         """
         Make a dictionary with all words in a
         labeled file.
         """
-        data = self.get_data(input_data)
+        data = self.get_data(input_data, delimiter=True)
+        word_dict = Counter([item[0] for item in data if item != []])
+        return word_dict
         word_dict = {}
         for line in data:
             try:
@@ -448,7 +441,7 @@ class HMM2_generator:
         lexicon /= tag_sums[:, numpy.newaxis]
         return lexicon
 
-    def get_data(self, input_data):
+    def get_data(self, input_data, delimiter=None):
         """
         If input_data is a filename, return
         a list of the lines in the file with
@@ -456,12 +449,15 @@ class HMM2_generator:
         inputdata as inputted.
         :rtype: list
         """
-        if isinstance(input_data, str):
+        if isinstance(input_data, list):
+            return input_data
+        elif isinstance(input_data, str):
             f = open(input_data, 'r')
             data = f.readlines()
             f.close()
-        elif isinstance(input_data, list):
-            data = input_data
+            if delimiter:
+                [x.split() for x in data]
         else:
             return ValueError
+
         return data
