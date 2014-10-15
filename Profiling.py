@@ -1,13 +1,21 @@
-from ForwardBackward import ForwardBackward as FB
-import pickle
+import line_profiler as P
+import Test
+import test_accuracy_tagger as t
+import HMMgenerator as gen
+import IterativeTraining
 
-tags = set(['LET', 'LID', 'VZ', 'WW', 'TSW', 'ADJ', 'N', 'VG', 'BW', 'TW', 'SPEC(e)', 'VNW', 'VZ+LID', 'WW+VNW'])
+profiler = P.LineProfiler()
+# profiler.add_module(IterativeTraining)
+# profiler.add_module(gen)
+# profiler.add_function(gen.HMM2_generator.get_lexicon_counts)
+# profiler.add_function(gen.HMM2_generator.get_lexicon_from_file)
+profiler.add_function(t.run)
+profiler.add_function(gen.HMM2_generator.get_lexicon_counts)
+profiler.add_function(gen.HMM2_generator.get_trigrams_from_file)
 
-hmm = pickle.load(open('statenvertaling.hmm.pickle', 'r'))
+ftrain = '../../Data/Lassy/lassy.train.spec1'
+feval = '../../Data/Lassy/lassy.dev.spec1'
 
-s = 'inden beginne schiep godt den hemel , ende de aerde .\n'
-
-training = FB(s, hmm)
-expected_counts = training.compute_expected_counts()
-
-pickle.dump(expected_counts, open('expected_counts_float.pickle', 'w'))
+T = Test.Test()
+profiler.run('t.run(ftrain, feval)')
+profiler.print_stats()
