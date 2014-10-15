@@ -22,7 +22,7 @@ class Viterbi:
         Compute the viterbi parse for the sequence.
         """
         # Maybe I should rewrite this to use logs instead of probs
-        words = sequence.split()
+        words = sequence
         best_sequence = []
         N = len(self.hmm.tagIDs)
         length = len(words)
@@ -31,21 +31,21 @@ class Viterbi:
         backpointers = numpy.zeros(shape=dynamic_table.shape, dtype=numpy.int)
 
         # base case
-        dynamic_table[0, -2, :] = self.hmm.transition[-1, -2, :] * self.hmm.emission[:, self.hmm.wordIDs[words[0]]]
+        dynamic_table[0, :, -2] = (self.hmm.transition[-1, -2, :] * self.hmm.emission[:, self.hmm.wordIDs[words[0]]]).transpose()
 
         # work further through the sentence
         for position in xrange(1, length):
             wordID = self.hmm.wordIDs[words[position]]
-            probs = numpy.transpose(dynamic_table[position-1, :, :] * self.hmm.transition[:, :, :].transpose(2, 0, 1), (0, 2, 1))
-            dynamic_table[position, :, :] = (self.hmm.emission[:, wordID, numpy.newaxis] * probs.max(axis=2)).transpose()
-            backpointers[position, :, :] = probs.argmax(axis=2)
+            probs = dynamic_table[position-1, :, :].transpose() * self.hmm.transition[:, :, :].transpose(2, 0, 1)
+            dynamic_table[position, :, :] = self.hmm.emission[:, wordID, numpy.newaxis] * probs.max(axis=1)
+            backpointers[position, :, :] = probs.argmax(axis=1)
 
         # last tag
-        dynamic_table[-1, :, :] *= self.hmm.transition[:, :, -1]
+        dynamic_table[-1, :, :] *= self.hmm.transition[:, :, -1].transpose()
 
         # probability best sequence
         best_prob = dynamic_table[-1, :, :].max()
-        tagID1, tagID2 = numpy.unravel_index(dynamic_table[-1, :, :].argmax(), dynamic_table[-1, :, :].shape)
+        tagID2, tagID1 = divmod(dynamic_table[-1, :, :].argmax(), N)
 
         # loop back trough backpointers to find best sequence
         # Maybe I should put this in another function
