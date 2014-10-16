@@ -73,7 +73,6 @@ class Train:
             accuracy = self.compute_accuracy(hmm, evaluation, ignore_tags)
             print "accuracy before iteration: %f" % (accuracy)
             hmm = self.iteration(hmm, lexicon_basis)
-            raw_input()
 
         print "accuracy after training:", accuracy
         return hmm
