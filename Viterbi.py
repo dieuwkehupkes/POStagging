@@ -31,26 +31,33 @@ class Viterbi:
         backpointers = numpy.zeros(shape=dynamic_table.shape, dtype=numpy.int)
 
         # base case
-        dynamic_table[0, :, -2] = (self.hmm.transition[-1, -2, :] * self.hmm.emission[:, self.hmm.wordIDs[words[0]]]).transpose()
+        dynamic_table[0, -2, :] = self.hmm.transition[-1, -2, :] * self.hmm.emission[:, self.hmm.wordIDs[words[0]]]
 
         # work further through the sentence
         for position in xrange(1, length):
             wordID = self.hmm.wordIDs[words[position]]
-            probs = dynamic_table[position-1, :, :].transpose() * self.hmm.transition[:, :, :].transpose(2, 0, 1)
-            dynamic_table[position, :, :] = self.hmm.emission[:, wordID, numpy.newaxis] * probs.max(axis=1)
+            probs = dynamic_table[position-1, :, :] * self.hmm.transition[:, :, :].transpose(2, 0, 1)
+            
+            # set backpointers to highest probability indices
+            # I compute both max and argmax, can't that be done more efficiently?
             backpointers[position, :, :] = probs.argmax(axis=1)
 
+            # compute maximum values, update next row of dynamic table
+            max_probs = probs.max(axis=1)
+            dynamic_table[position, :, :] = (self.hmm.emission[:, wordID, numpy.newaxis] * max_probs).transpose()
+
         # last tag
-        dynamic_table[-1, :, :] *= self.hmm.transition[:, :, -1].transpose()
+        dynamic_table[-1, :, :] *= self.hmm.transition[:, :, -1]
 
         # probability best sequence
-        best_prob = dynamic_table[-1, :, :].max()
-        tagID2, tagID1 = divmod(dynamic_table[-1, :, :].argmax(), N)
+        tagID1, tagID2 = divmod(dynamic_table[-1, :, :].argmax(), N)
+        backpointer = (-1, tagID1, tagID2)
+        best_prob = dynamic_table[backpointer]
 
         # loop back trough backpointers to find best sequence
         # Maybe I should put this in another function
         best_sequence.append(self.hmm.tagIDs_reversed[tagID2])
-        backpointer = (-1, tagID1, tagID2)
+        # backpointer = (-1, tagID1, tagID2)
         for position in reversed(xrange(length-1)):
             best_sequence.append(self.hmm.tagIDs_reversed[backpointer[1]])
             backpointer = (position, backpointers[position+1, tagID2, tagID1], tagID1)
