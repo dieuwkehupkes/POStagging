@@ -53,14 +53,14 @@ def run(ftrain, feval):
         # tagIDs, transition_matrix = pickle.load(open('lassy.train.syntactic_model', 'rb'))
 
         # generate trigrams
-        # print "Generate syntactic model"
+        print "Generate syntactic model"
         trigram_counts = generator.get_trigrams_from_file(training_data, tagIDs)
         transition_matrix = generator.get_transition_probs(trigram_counts, smoothing=syntactic_smoothing)
         # pickle.dump([tagIDs, transition_matrix], open('lassy.train.syntactic_model', 'wb'))
 
         words_labeled = generator.labeled_make_word_list(training_data)
 
-        # print "Generate lexical model"
+        print "Generate lexical model"
         all_words = set(words_labeled.keys()).union(set(words_unlabeled.keys()))
         wordIDs = generator.generate_lexicon_IDs(all_words)
         lex_dict = generator.get_lexicon_counts(training_data, tagIDs, wordIDs)
@@ -68,9 +68,7 @@ def run(ftrain, feval):
         lexicon = generator.get_emission_probs(lex_dict_smoothed)
         hmm = HMM2(transition_matrix, lexicon, tagIDs, wordIDs)
 
-        return
-    
-        # print "Tag corpus and evaluate accuracy"
+        print "Tag corpus and evaluate accuracy"
         # accuracy = T.compute_accuracy(hmm, evaluation, ignore_tags=set(['LET']))
         accuracy = T.compute_accuracy(hmm, evaluation)
         print '\n', accuracy
@@ -79,9 +77,7 @@ def run(ftrain, feval):
         sentences.append(l)
         accuracy_list.append(accuracy)
 
-    print tokens
-    print sentences
-    print accuracy_list
+    return tokens, sentences, accuracy_list
 
 
 def make_word_list(evaluation_set):
