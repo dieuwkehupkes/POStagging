@@ -5,10 +5,10 @@ import HMMgenerator as gen
 import IterativeTraining
 
 profiler = P.LineProfiler()
-# profiler.add_module(IterativeTraining)
-# profiler.add_module(gen)
-# profiler.add_function(gen.HMM2_generator.get_lexicon_counts)
-# profiler.add_function(gen.HMM2_generator.get_lexicon_from_file)
+profiler.add_module(IterativeTraining)
+profiler.add_module(gen)
+profiler.add_function(gen.HMM2_generator.get_lexicon_counts)
+profiler.add_function(gen.HMM2_generator.get_lexicon_from_file)
 profiler.add_function(t.run)
 profiler.add_function(gen.HMM2_generator.get_lexicon_counts)
 profiler.add_function(gen.HMM2_generator.get_trigrams_from_file)
