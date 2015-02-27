@@ -13,6 +13,6 @@ trans_dict, lex_dict = generator.get_hmm_dicts_from_file('../../Data/Statenverta
 #smooth transition and lexicon matrices
 tran_dict = generator.transition_dict_add_alpha(0.5, trans_dict)
 lex_dict = generator.lexicon_dict_add_unlabeled(words_unlabeled, lex_dict)
-hmm = generator.make_hmm(trans_dict, lex_dict)
+hmm = generator.make_hmm(trans_dict, lex_dict, generator.tagIDs, generator.wordIDs)
 
 pickle.dump(hmm, open('statenvertaling.hmm.pickle', 'w'))
